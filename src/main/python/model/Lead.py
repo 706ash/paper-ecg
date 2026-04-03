@@ -36,10 +36,14 @@ class LeadId(Enum):
     V4  = 9
     V5  = 10
     V6  = 11
+    RHYTHM = 12
+
+    def __str__(self) -> str:
+        names = ['I', 'II', 'III', 'aVR', 'aVL', 'aVF', 'V1', 'V2', 'V3', 'V4', 'V5', 'V6', 'Rhythm']
+        return names[self.value]
 
     def __repr__(self) -> str:
-        names = ['I', 'II', 'III', 'aVR', 'aVL', 'aVF', 'V1', 'V2', 'V3', 'V4', 'V5', 'V6']
-        return names[self.value]
+        return self.__str__()
 
 
 @dataclasses.dataclass(frozen=True)
@@ -49,6 +53,7 @@ class Lead:
     width: int
     height: int
     startTime: int
+    name: str = ""
 
 
 @dataclasses.dataclass(frozen=True)

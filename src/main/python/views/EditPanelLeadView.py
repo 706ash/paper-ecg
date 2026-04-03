@@ -58,13 +58,16 @@ class EditPanelLeadView(QtWidgets.QWidget):
         self.deleteLeadButton.clicked.connect(lambda: self.deleteLeadRoi.emit(self.leadId))
 
 
-    def setValues(self, leadId, startTime=0.0):
+    def setValues(self, leadId, startTime=0.0, customName=None):
         self.leadId = leadId
-        self.setTitle(leadId)
+        self.setTitle(leadId, customName)
         self.leadStartTimeSpinBox.setValue(startTime)
 
-    def setTitle(self, leadId):
-        self.title.setText("Lead " + leadId)
+    def setTitle(self, leadId, customName=None):
+        name = customName if customName else str(leadId)
+        if "Lead" not in name:
+            name = "Lead " + name
+        self.title.setText(name)
 
     def startTimeChanged(self):
         print("start time changed: " + str(self.leadStartTimeSpinBox.value()))

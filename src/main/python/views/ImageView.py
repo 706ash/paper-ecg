@@ -141,7 +141,7 @@ class ImageView(QtWidgets.QGraphicsView):
     def removeRoiBox(self, leadId):
         # remove indiviudual roi from scene
         for item in self._scene.items():
-            if item.type == ROI_ITEM_TYPE and item.leadId == leadId:
+            if item.type == ROI_ITEM_TYPE and self._leadIdMatches(item.leadId, leadId):
                 self._scene.removeItem(item)
 
     def getAllLeadRoisAsDict(self):
@@ -149,20 +149,39 @@ class ImageView(QtWidgets.QGraphicsView):
         leads = {}
         for item in self._scene.items():
             if item.type == ROI_ITEM_TYPE:
-                leads[LeadId[item.leadId]] = Lead(x=item.x, y=item.y, width=item.width, height=item.height, startTime=item.startTime)
+                customName = getattr(item, 'customName', "")
+                leadId = item.leadId
+                leads[leadId] = Lead(
+                    x=item.x, y=item.y, width=item.width, height=item.height, 
+                    startTime=item.startTime, name=customName
+                )
         return leads
+
+    def getLeadRoiCustomName(self, leadId):
+        for item in self._scene.items():
+            if item.type == ROI_ITEM_TYPE and self._leadIdMatches(item.leadId, leadId):
+                return getattr(item, 'customName', None)
+        return None
 
     def getLeadRoiStartTime(self, leadId):
         # get start time for specific lead (looking into a way to do this without looping through all items in scene)
         for item in self._scene.items():
-            if item.type == ROI_ITEM_TYPE and item.leadId == leadId:
+            if item.type == ROI_ITEM_TYPE and self._leadIdMatches(item.leadId, leadId):
                 return item.startTime
 
     def setLeadRoiStartTime(self, leadId, startTime):
         # set start time for specific lead (looking into a way to do this without looping through all items in scene)
         for item in self._scene.items():
-            if item.type == ROI_ITEM_TYPE and item.leadId == leadId:
+            if item.type == ROI_ITEM_TYPE and self._leadIdMatches(item.leadId, leadId):
                 item.startTime = startTime
+
+    @staticmethod
+    def _leadIdMatches(itemLeadId, leadId):
+        if itemLeadId == leadId:
+            return True
+        if isinstance(leadId, str):
+            return getattr(itemLeadId, "name", None) == leadId
+        return False
 
     def getGridBoxCount(self):
         """Return the number of grid boxes in the scene."""
@@ -228,12 +247,17 @@ class ImageView(QtWidgets.QGraphicsView):
         """Add a baseline (isoelectric line) marker for a specific row.
         
         Args:
-            y_position: Initial Y position (defaults to image height / 2)
-            baselineId: ID of baseline (0, 1, or 2 for 3-row ECG)
+            y_position: Initial Y position (defaults to a sensible row position)
+            baselineId: ID of baseline row
         """
         if y_position is None:
-            # Default positions for 3 baselines
-            y_position = self.imageRect.height() * (0.2 + baselineId * 0.3)
+            default_positions = {
+                0: 0.2,
+                1: 0.5,
+                2: 0.8,
+                3: 0.92,
+            }
+            y_position = self.imageRect.height() * default_positions.get(baselineId, 0.5)
         
         # Remove existing baseline with same ID if present
         self.removeBaseline(baselineId)

@@ -147,7 +147,16 @@ def exportSignals(leadSignals, filePath, separator='\t', exportUnit='pixels', in
 
     if filePath.suffix == '.npz':
         # Save as named numpy arrays for easy access
-        export_dict = {lead_id.name: signal for lead_id, signal in leads}
+        export_dict = {}
+        for lead_id, signal in leads:
+            # Use custom name if provided in inputParameters, otherwise use Enum name
+            name = lead_id.name
+            if inputParameters and lead_id in inputParameters.leads:
+                custom_name = inputParameters.leads[lead_id].name
+                if custom_name:
+                    name = custom_name
+            export_dict[name] = signal
+            
         export_dict['sampling_rate'] = 500.0  # Common metadata
         np.savez(filePath, **export_dict)
         return

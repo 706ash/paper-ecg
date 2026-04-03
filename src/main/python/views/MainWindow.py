@@ -164,6 +164,14 @@ class MainWindow(QtWidgets.QMainWindow):
                     displayName="Add Lead V6",
                     shortcut=QtGui.QKeySequence('Ctrl+]'),
                     statusTip="Add Lead V6"
+                ),
+                Qt.Separator(),
+                Qt.MenuAction(
+                    owner=self,
+                    name="addLeadRHYTHM",
+                    displayName="Add Rhythm/Long Lead",
+                    shortcut=QtGui.QKeySequence('Ctrl+R'),
+                    statusTip="Add an enlarged/continuous lead at the bottom"
                 )
             ]
         )
@@ -218,13 +226,21 @@ class MainWindow(QtWidgets.QMainWindow):
                     shortcut=QtGui.QKeySequence('Ctrl+Shift+2'),
                     statusTip="Add baseline for row 2 (aVR, aVL, V1)"
                 ),
-               Qt.MenuAction(
+                Qt.MenuAction(
                     owner=self,
                     name="addBaseline3",
                     displayName="Add Baseline Row 3",
                     shortcut=QtGui.QKeySequence('Ctrl+Shift+3'),
                     statusTip="Add baseline for row 3 (V2, V3, V4)"
                 ),
+               Qt.MenuAction(
+                    owner=self,
+                    name="addBaseline4",
+                    displayName="Add Baseline Row 4 (Rhythm)",
+                    shortcut=QtGui.QKeySequence('Ctrl+Shift+4'),
+                    statusTip="Add baseline for the enlarged rhythm lead at the bottom"
+                ),
+                Qt.Separator(),
                 Qt.MenuAction(
                     owner=self,
                     name="removeAllBaselines",
@@ -275,5 +291,6 @@ class MainWindow(QtWidgets.QMainWindow):
             LeadId.V3: self.addLeadV3,
             LeadId.V4: self.addLeadV4,
             LeadId.V5: self.addLeadV5,
-            LeadId.V6: self.addLeadV6
+            LeadId.V6: self.addLeadV6,
+            LeadId.RHYTHM: self.addLeadRHYTHM
         }

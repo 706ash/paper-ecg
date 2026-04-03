@@ -21,10 +21,10 @@ class ROIItem(QtWidgets.QGraphicsRectItem):
     handleBottomMiddle = 7
     handleBottomRight = 8
 
-    baseHandleSize = +8.0
-    baseHandleSpace = -4.0
-    handleSize = +8.0
-    handleSpace = -4.0
+    baseHandleSize = +12.0
+    baseHandleSpace = -6.0
+    handleSize = +12.0
+    handleSpace = -6.0
 
     def getScale(self):
         if hasattr(self, 'parentViews') and self.parentViews and len(self.parentViews) > 0:
@@ -50,6 +50,7 @@ class ROIItem(QtWidgets.QGraphicsRectItem):
         super().__init__(*args)
 
         self.leadId = leadId
+        self.customName = None
         self.startTime = 0.0
 
         # Minimum width and height of box (in pixels)
@@ -97,8 +98,11 @@ class ROIItem(QtWidgets.QGraphicsRectItem):
         """
         Returns the resize handle below the given point.
         """
+        scale = self.getScale()
+        # Add a 5px (on screen) hit area padding
+        padding = 5.0 / scale
         for k, v, in self.handles.items():
-            if v.contains(point):
+            if v.adjusted(-padding, -padding, padding, padding).contains(point):
                 return k
         return None
 
@@ -241,7 +245,7 @@ class ROIItem(QtWidgets.QGraphicsRectItem):
                 return self.restrictMovement(value)
 
         if change == QtWidgets.QGraphicsRectItem.ItemSelectedChange:
-            self.parentViews[0].roiItemSelected.emit(self.leadId, value)
+            self.parentViews[0].roiItemSelected.emit(self.leadId.name, value)
             if value == True:
                 self.setZValue(1)
             else:
@@ -332,7 +336,7 @@ class ROIItem(QtWidgets.QGraphicsRectItem):
             textPen = QtGui.QPen(QtGui.QColor(128, 128, 128), 1.0)
             textPen.setCosmetic(True)
             painter.setPen(textPen)
-            label = str(self.leadId) if hasattr(self.leadId, 'name') else str(self.leadId)
+            label = self.customName if self.customName else str(self.leadId)
             painter.drawText(self.rect(), QtCore.Qt.AlignCenter, label)
             painter.restore()
 

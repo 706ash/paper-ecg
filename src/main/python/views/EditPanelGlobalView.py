@@ -105,6 +105,18 @@ class EditPanelGlobalView(QtWidgets.QWidget):
                             text="Not set"
                         )
                     ]),
+                    HorizontalBoxLayout(owner=self, name="baseline4Layout", contents=[
+                        Label(
+                            owner=self,
+                            name="baseline4Label",
+                            text="Row 4 (Rhythm/Long): "
+                        ),
+                        Label(
+                            owner=self,
+                            name="baseline4YValue",
+                            text="Not set"
+                        )
+                    ]),
                     Label(
                         owner=self,
                         name="baselineHelpLabel",
@@ -299,11 +311,11 @@ class EditPanelGlobalView(QtWidgets.QWidget):
         infoModal.exec_()
 
     def updateBaselineDisplay(self, _=None):
-        """Update the baseline Y displays for all 3 baselines."""
+        """Update the baseline Y displays for all 4 baselines."""
         baselines = self.editorWidget.imageViewer.getAllBaselineYs()
         
         # Update each baseline display
-        for i in range(3):
+        for i in range(4):
             label = getattr(self, f"baseline{i+1}YValue", None)
             if label:
                 baselineY = baselines.get(i, None)

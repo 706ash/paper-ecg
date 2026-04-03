@@ -95,6 +95,8 @@ class Editor(QtWidgets.QWidget):
         self.mainWindow.addBaseline1.triggered.connect(lambda: self.addBaseline(baselineId=0))
         self.mainWindow.addBaseline2.triggered.connect(lambda: self.addBaseline(baselineId=1))
         self.mainWindow.addBaseline3.triggered.connect(lambda: self.addBaseline(baselineId=2))
+        self.mainWindow.addBaseline4.triggered.connect(lambda: self.addBaseline(baselineId=3))
+        self.mainWindow.addLeadRHYTHM.triggered.connect(self.addRhythmLead)
         self.mainWindow.removeAllBaselines.triggered.connect(self.removeAllBaselines)
 
         self.imageViewer.roiItemSelected.connect(self.setControlPanel)
@@ -153,9 +155,9 @@ class Editor(QtWidgets.QWidget):
         self.editPanel.setCurrentIndex(0)
 
     def showLeadDetailView(self, leadId):
-        # leadStartTime = self.inputParameters.leads[LeadId[leadId]].startTime
         leadStartTime = self.imageViewer.getLeadRoiStartTime(leadId)
-        self.EditPanelLeadView.setValues(leadId, leadStartTime)
+        customName = self.imageViewer.getLeadRoiCustomName(leadId)
+        self.EditPanelLeadView.setValues(leadId, leadStartTime, customName)
         self.editPanel.setCurrentIndex(1)
 
 
@@ -190,7 +192,7 @@ class Editor(QtWidgets.QWidget):
     # Lead ROI functions #
     ######################
 
-    def addLead(self, leadIdEnum, x=0, y=0, width=400, height=200, startTime=0.0):
+    def addLead(self, leadIdEnum, x=0, y=0, width=400, height=200, startTime=0.0, customName=None):
         if self.imageViewer.hasImage():
             leadId = leadIdEnum.name
 
@@ -199,12 +201,27 @@ class Editor(QtWidgets.QWidget):
             self.mainWindow.leadButtons[leadIdEnum].setEnabled(False)
 
             # Create instance of Region of Interest (ROI) bounding box and add to image viewer
-            roiBox = ROIItem(self.imageViewer._scene, leadId)
+            roiBox = ROIItem(self.imageViewer._scene, leadIdEnum)
             roiBox.setRect(x, y, width, height)
             roiBox.startTime = startTime
+            if customName:
+                roiBox.customName = customName
 
             self.imageViewer._scene.addItem(roiBox)
             roiBox.show()
+
+    def addRhythmLead(self):
+        if self.imageViewer.hasImage():
+            from PyQt5.QtWidgets import QInputDialog
+            default_leads = ["Lead II", "Lead V1", "Lead V5", "Lead I", "Lead III", "Lead aVR", "Lead aVL", "Lead aVF", "Lead V2", "Lead V3", "Lead V4", "Lead V6"]
+            text, ok = QInputDialog.getItem(self.mainWindow, 'Lead Name', 'Select name for rhythm lead:', default_leads, 0, True)
+            if ok and text:
+                # Use a larger default size for rhythm leads, placed near the bottom
+                rect = self.imageViewer.imageRect
+                img_height = rect.height()
+                img_width = rect.width()
+                # Place in the bottom quarter of the image
+                self.addLead(LeadId.RHYTHM, x=50, y=img_height * 0.75, width=img_width - 100, height=img_height * 0.2, customName=text)
 
     def updateLeadStartTime(self, leadId, value=None):
         if value is None:
