@@ -7,7 +7,7 @@ FILE_PATH = "leads.npz"
 
 # Set this to a specific lead name (e.g. "I", "II", "aVR", "V1") to only plot that lead.
 # Set it to None to plot all leads contained in the file.
-TARGET_LEAD = "II"
+TARGET_LEAD = None
 
 def plot_ecg_npz():
     # 1. Load the NPZ data.
