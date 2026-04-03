@@ -131,11 +131,11 @@ def getPointLocations(image: np.ndarray) -> List[List[Point]]:
                 c_next = get_c_at(col + 1, center)
                 if c_next == center: c_next = get_c_at(col + 2, center)
                 
-                # Upward peak (neighbors have higher Y index meaning they are lower on screen)
-                if c_prev > center and c_next > center:
+                # Upward peak: neighbors are significantly lower (higher Y index)
+                if (c_prev - center) >= 2 and (c_next - center) >= 2:
                     y_point = start
-                # Downward peak (neighbors have lower Y index meaning they are higher on screen)
-                elif c_prev < center and c_next < center:
+                # Downward peak: neighbors are significantly higher (lower Y index)
+                elif (center - c_prev) >= 2 and (center - c_next) >= 2:
                     y_point = end
                     
             col_points.append(Point(col, y_point))
