@@ -43,9 +43,8 @@ def verticallyScaleECGSignal(
     gridsPerPixel = 1 / gridSizeInPixels                   # Converts size in pixels to size in grid
     millimetersPerGrid = gridSizeInMillimeters             # Converts size in grid to size in mm
     milliVoltsPerMillimeter = 1 / millimetersPerMilliVolt  # Converts size in mm to size in mV
-    microVoltsPerMilliVolt = 1000                          # Converts size in mV to size in μV
-    microVoltsPerPixel = gridsPerPixel * millimetersPerGrid * milliVoltsPerMillimeter * microVoltsPerMilliVolt
-    return signal * microVoltsPerPixel * -1  # Pixels are 0 at the top of the image
+    milliVoltsPerPixel = gridsPerPixel * millimetersPerGrid * milliVoltsPerMillimeter
+    return signal * milliVoltsPerPixel * -1  # Pixels are 0 at the top of the image
 
 
 def ecgSignalSamplingPeriod(gridSizeInPixels: float, millimetersPerSecond: float = 25.0, gridSizeInMillimeters: float = 1.0) -> float:

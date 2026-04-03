@@ -372,12 +372,8 @@ class ExportFileDialog(QtWidgets.QDialog):
         ax.plot(signal, linewidth=2)
         ax.invert_yaxis()
         
-        # Lock the aspect ratio to 1:1. Since both X and Y are in pixels, 
-        # this ensures the peaks don't look artificially stretched vertically.
-        ax.set_aspect('equal', adjustable='datalim')
-        
         ax.set_title(f"Extracted 1D Signal - Lead {title}")
-        ax.set_xlabel("Time (pixels)")
-        ax.set_ylabel("Amplitude (pixels)")
+        ax.set_xlabel("Time (500 Hz samples)")
+        ax.set_ylabel("Amplitude")
         plt.tight_layout()
         plt.show(block=False)

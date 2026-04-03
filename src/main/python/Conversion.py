@@ -96,8 +96,29 @@ def convertECGLeads(inputImage: ColorImage, parameters: InputParameters):
         for leadId, signal in paddedScaledSignals.items()
     }
 
+    # Resample everything to exactly 500 Hz (0.002s intervals)
+    TARGET_SAMPLING_RATE = 500.0
+    target_dt = 1.0 / TARGET_SAMPLING_RATE
+    
+    old_times = np.arange(maxLength) * samplingPeriod
+    if len(old_times) > 0:
+        new_length = int(np.ceil(old_times[-1] / target_dt))
+        new_times = np.arange(new_length) * target_dt
+        
+        fullRawSignals_500Hz = {
+            leadId: np.interp(new_times, old_times, signal)
+            for leadId, signal in fullRawSignals.items()
+        }
+        fullScaledSignals_500Hz = {
+            leadId: np.interp(new_times, old_times, signal)
+            for leadId, signal in fullScaledSignals.items()
+        }
+    else:
+        fullRawSignals_500Hz = fullRawSignals
+        fullScaledSignals_500Hz = fullScaledSignals
+
     # Return both raw (pixels) and scaled (mV) signals
-    return fullScaledSignals, previews, fullRawSignals
+    return fullScaledSignals_500Hz, previews, fullRawSignals_500Hz
 
 
 def exportSignals(leadSignals, filePath, separator='\t', exportUnit='pixels', inputParameters=None):
