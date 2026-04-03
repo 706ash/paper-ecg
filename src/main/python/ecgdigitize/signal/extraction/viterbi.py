@@ -116,16 +116,22 @@ def getPointLocations(image: np.ndarray) -> List[List[Point]]:
 
 # TODO: Make score multiply, or normalize the score by the length of the path
 def score(currentPoint: Point, candidatePoint: Point, candidateAngle: float) -> float:
-    DISTANCE_WEIGHT = .5
-
+    # Distance weight and Angle weight
+    DISTANCE_WEIGHT = 0.6
+    
+    dx = currentPoint.x - candidatePoint.x
+    dy = currentPoint.y - candidatePoint.y
+    
+    # Dampen the vertical distance penalty. 
+    # ECG peaks (especially R-peaks) involve large Y deviations.
+    # Standard Euclidean distance makes these peaks "expensive", causing undershooting.
+    # By dividing dy by 5.0, we make climb-intensive paths much more competitive.
+    dampenedDistance = sqrt(dx**2 + (dy/5.0)**2)
+    
     currentAngle = angleBetweenPoints(candidatePoint, currentPoint)
     angleValue = 1 - angleSimilarity(currentAngle, candidateAngle)
-    distanceValue = distanceBetweenPoints(currentPoint, candidatePoint)
 
-    # print(currentAngle, candidateAngle, angleValue)
-    # print(distanceValue)
-
-    return (distanceValue * DISTANCE_WEIGHT) + (angleValue * (1 - DISTANCE_WEIGHT))
+    return (dampenedDistance * DISTANCE_WEIGHT) + (angleValue * (1 - DISTANCE_WEIGHT))
 
 
 def getAdjacent(pointsByColumn, bestPathToPoint, startingColumn: int, minimumLookBack: int):
