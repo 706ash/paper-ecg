@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 
 # --- Configuration ---
 # Replace this with the actual path to your exported .npz file
-FILE_PATH = "leads.npz"
+FILE_PATH = "NORMAL(106)-Source_Raw_Signal_mV_500Hz.npz"
 
 # Set this to a specific lead name (e.g. "I", "II", "aVR", "V1") to only plot that lead.
 # Set it to None to plot all leads contained in the file.

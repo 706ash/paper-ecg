@@ -83,16 +83,19 @@ def convertECGLeads(inputImage: ColorImage, parameters: InputParameters):
         for leadId, signal in scaledSignals.items()
     }
 
-    # Pad all signals on the right to same length
-    maxLength = max([len(s) for _, s in paddedRawSignals.items()])
-    fullRawSignals = {
-        leadId: common.padRight(signal, maxLength - len(signal))
+    # Track how far each padded signal extends before further padding
+    signalLengths = {
+        leadId: len(signal)
         for leadId, signal in paddedRawSignals.items()
     }
     
-    maxLength = max([len(s) for _, s in paddedScaledSignals.items()])
-    fullScaledSignals = {
-        leadId: common.padRight(signal, maxLength - len(signal))
+    # Use trimmed signals (without extra right-padding) for interpolation
+    trimmedRawSignals = {
+        leadId: signal[:signalLengths[leadId]]
+        for leadId, signal in paddedRawSignals.items()
+    }
+    trimmedScaledSignals = {
+        leadId: signal[:signalLengths[leadId]]
         for leadId, signal in paddedScaledSignals.items()
     }
 
@@ -100,22 +103,26 @@ def convertECGLeads(inputImage: ColorImage, parameters: InputParameters):
     TARGET_SAMPLING_RATE = 500.0
     target_dt = 1.0 / TARGET_SAMPLING_RATE
     
-    old_times = np.arange(maxLength) * samplingPeriod
-    if len(old_times) > 0:
-        new_length = int(np.ceil(old_times[-1] / target_dt))
-        new_times = np.arange(new_length) * target_dt
-        
-        fullRawSignals_500Hz = {
-            leadId: np.interp(new_times, old_times, signal)
-            for leadId, signal in fullRawSignals.items()
-        }
-        fullScaledSignals_500Hz = {
-            leadId: np.interp(new_times, old_times, signal)
-            for leadId, signal in fullScaledSignals.items()
-        }
-    else:
-        fullRawSignals_500Hz = fullRawSignals
-        fullScaledSignals_500Hz = fullScaledSignals
+    fullRawSignals_500Hz = {}
+    fullScaledSignals_500Hz = {}
+    for leadId, rawSignal in trimmedRawSignals.items():
+        trimmedLength = len(rawSignal)
+        if trimmedLength == 0:
+            fullRawSignals_500Hz[leadId] = np.array([])
+            fullScaledSignals_500Hz[leadId] = np.array([])
+            continue
+
+        old_times = np.arange(trimmedLength) * samplingPeriod
+        duration = old_times[-1]
+        if duration <= 0:
+            new_times = np.array([0.0])
+        else:
+            new_length = int(np.floor(duration / target_dt)) + 1
+            new_times = np.arange(new_length) * target_dt
+
+        fullRawSignals_500Hz[leadId] = np.interp(new_times, old_times, rawSignal)
+        scaledSignal = trimmedScaledSignals[leadId]
+        fullScaledSignals_500Hz[leadId] = np.interp(new_times, old_times, scaledSignal)
 
     # Return both raw (pixels) and scaled (mV) signals
     return fullScaledSignals_500Hz, previews, fullRawSignals_500Hz
@@ -135,12 +142,7 @@ def exportSignals(leadSignals, filePath, separator='\t', exportUnit='pixels', in
     leads.sort(key=lambda pair: pair[0].value)
 
     assert len(leads) >= 1
-    lengthOfFirst = len(leads[0][1])
-
-    assert all([len(signal) == lengthOfFirst for key, signal in leads])
-
-    collated = np.array([signal for _, signal in leads])
-    output = np.swapaxes(collated, 0, 1)
+    maxLength = max(len(signal) for _, signal in leads)
 
     if not issubclass(type(filePath), Path):
         filePath = Path(filePath)
@@ -164,12 +166,15 @@ def exportSignals(leadSignals, filePath, separator='\t', exportUnit='pixels', in
     if filePath.exists():
         print("Warning: Output file will be overwritten!")
 
-    outputLines = [
-        separator.join(
-            [str(val) for val in row]
-        ) + "\n"
-        for row in output
-    ]
+    outputLines = []
+    for row_index in range(maxLength):
+        row_values = []
+        for _, signal in leads:
+            if row_index < len(signal):
+                row_values.append(str(signal[row_index]))
+            else:
+                row_values.append('')
+        outputLines.append(separator.join(row_values) + "\n")
 
     with open(filePath, 'w') as outputFile:
         outputFile.writelines(outputLines)

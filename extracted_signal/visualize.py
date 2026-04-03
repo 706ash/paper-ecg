@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 
 # --- Configuration ---
 # Replace this with the actual path to your exported file
-FILE_PATH = "leads.csv"
+FILE_PATH = "all_leads.csv"
 
 # The separator used during export ("Comma", "Tab", or "Space")
 # Change this to "\t" if you exported using Tabs, or " " for Spaces.
@@ -15,7 +15,7 @@ SAMPLING_RATE = 500.0
 
 # Set this to a specific lead index (e.g. 1) to only plot that lead.
 # Set it to None to plot all leads.
-TARGET_LEAD = 3
+TARGET_LEAD = None
 
 def plot_ecg_csv():
     # 1. Load the CSV data.
