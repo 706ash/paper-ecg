@@ -297,7 +297,8 @@ class ROIItem(QtWidgets.QGraphicsRectItem):
         """
         self.updateHandlesPos()
 
-        painter.setFont(QtGui.QFont('Default', 50))
+        painter.setRenderHint(QtGui.QPainter.TextAntialiasing)
+        painter.setFont(QtGui.QFont('Arial', 24, QtGui.QFont.Bold))
         fontMetrics = QtGui.QFontMetrics(painter.font())
 
         if self.isSelected():
@@ -331,6 +332,7 @@ class ROIItem(QtWidgets.QGraphicsRectItem):
             textPen = QtGui.QPen(QtGui.QColor(128, 128, 128), 1.0)
             textPen.setCosmetic(True)
             painter.setPen(textPen)
-            painter.drawText(self.rect(), QtCore.Qt.AlignCenter, self.leadId)
+            label = str(self.leadId) if hasattr(self.leadId, 'name') else str(self.leadId)
+            painter.drawText(self.rect(), QtCore.Qt.AlignCenter, label)
             painter.restore()
 

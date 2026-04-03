@@ -312,12 +312,11 @@ class GridBoxItem(QtWidgets.QGraphicsRectItem):
 
             # Draw label clipped inside box
             painter.save()
-            painter.setClipping(True)
             painter.setClipRect(self.rect())
             labelPen = QtGui.QPen(QtGui.QColor(0, 100, 255), 1.0)
             labelPen.setCosmetic(True)
             painter.setPen(labelPen)
-            painter.setFont(QtGui.QFont('Default', 10))
+            painter.setFont(QtGui.QFont('Arial', 10, QtGui.QFont.Bold))
             label = f"{self.expectedMmWidth}mm Grid"
             painter.drawText(self.rect(), QtCore.Qt.AlignCenter, label)
             painter.restore()
@@ -340,12 +339,11 @@ class GridBoxItem(QtWidgets.QGraphicsRectItem):
 
             # Draw label clipped inside box
             painter.save()
-            painter.setClipping(True)
             painter.setClipRect(self.rect())
             textPen = QtGui.QPen(QtGui.QColor(60, 60, 60), 1.0)
             textPen.setCosmetic(True)
             painter.setPen(textPen)
-            painter.setFont(QtGui.QFont('Default', 10))
+            painter.setFont(QtGui.QFont('Arial', 10))
             label = f"Grid {self.gridId+1}"
             painter.drawText(self.rect(), QtCore.Qt.AlignCenter, label)
             painter.restore()

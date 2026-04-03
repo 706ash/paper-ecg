@@ -165,12 +165,20 @@ def convertPointsToSignal(points: List[Point], width: Optional[int] = None) -> n
     priorPoint = firstPoint
 
     for point in points[1:]:
-        if isnan(signal[point.index + 1]):
-            for interpolatedPoint in interpolate(point, priorPoint):
-                signal[interpolatedPoint.index] = interpolatedPoint.y
+        if point.index + 1 < arraySize:
+            if isnan(signal[point.index + 1]):
+                for interpolatedPoint in interpolate(point, priorPoint):
+                    if 0 <= interpolatedPoint.index < arraySize:
+                        signal[interpolatedPoint.index] = interpolatedPoint.y
 
-        signal[point.index] = point.y
+        if 0 <= point.index < arraySize:
+            signal[point.index] = point.y
         priorPoint = point
+
+    # Final padding: if the signal ends a few pixels early, carry the last value to the end
+    endIdx = firstPoint.index
+    if endIdx < arraySize - 1:
+        signal[endIdx:arraySize] = firstPoint.y
 
     return signal
 
@@ -182,57 +190,57 @@ def extractSignal(binary: BinaryImage) -> Optional[np.ndarray]:
     if len(points) == 0:
         return None
 
-    minimumLookBack = 1
-
     bestPathToPoint: Dict[Point, Tuple[float, Optional[Point], float]] = {}
 
-    # TODO: Allow some leeway either (1) Initialize the first N columns with 0s or (2) Search until some threshold for seeding is met
-
     # Initialize the DP table with base cases (far left side)
-    # TODO: Is this even needed? See below. Currently causes error with `getAdjacent` if removed.
-    for column in pointsByColumn[:1]:
+    # We allow the signal to start in any of the first 10 columns
+    for column in pointsByColumn[:10]:
         for point in column:
             bestPathToPoint[point] = (0, None, 0)
 
     # Build the table
     for column in pointsByColumn[1:]:
         for point in column:
-            # Gather all other points in the perview of search for the current point
-            adjacent = list(getAdjacent(pointsByColumn, bestPathToPoint, point.index, minimumLookBack))
+            # Use look-back of 1 so it prefers nearest columns first (important for peaks)
+            # The getAdjacent function will automatically look deeper if a column is empty.
+            adjacent = list(getAdjacent(pointsByColumn, bestPathToPoint, point.index, minimumLookBack=1))
 
             if len(adjacent) == 0:
-                print(f"None adjacent to {point}")
-                bestPathToPoint[point] = (0, None, 0)
+                bestPathToPoint[point] = (1000, None, 0) # High cost for disconnected points
             else:
                 bestScore: float
                 bestPoint: Point
                 bestScore, bestPoint = min(
                     [(score(point, candidatePoint, candidateAngle) + cadidateScore, candidatePoint)
                     for cadidateScore, candidatePoint, candidateAngle in adjacent],
-                    key=lambda triplet: triplet[0] # Just minimize by the score
+                    key=lambda triplet: triplet[0]
                 )
                 bestPathToPoint[point] = (bestScore, bestPoint, angleBetweenPoints(bestPoint, point))
 
-    # print(bestPathToPoint)
-
-    # TODO: Search backward in some 2D area for the best path ?
-    OPTIMAL_ENDING_WIDTH = 20
-    optimalCandidates = list(getAdjacent(pointsByColumn, bestPathToPoint, startingColumn=binary.width, minimumLookBack=OPTIMAL_ENDING_WIDTH))
-
-    # if len(optimalCandidates) == 0:
-
+    # Search for the best ending point in the last columns
+    # We want the FAR RIGHT point, don't just minimize score globally
+    OPTIMAL_ENDING_WIDTH = 50
+    candidates = list(getAdjacent(pointsByColumn, bestPathToPoint, startingColumn=binary.width, minimumLookBack=OPTIMAL_ENDING_WIDTH))
+    
+    if not candidates:
+        return None
+        
+    # Group candidates by column and pick from the rightmost non-empty column
+    max_x = max(p.x for _, p, _ in candidates)
+    rightmost_candidates = [c for c in candidates if c[1].x == max_x]
+    
+    # Within the rightmost column, pick the best score
     _, current = min(
-        [(totalScore, point) for totalScore, point, _ in optimalCandidates],
-        key=lambda pair: pair[0] # Just minimize by the score
+        [(totalScore, point) for totalScore, point, _ in rightmost_candidates],
+        key=lambda pair: pair[0]
     )
-
+    
     bestPath = []
-
     while current is not None:
         bestPath.append(current)
         _, current, _ = bestPathToPoint[current]
 
-    signal = convertPointsToSignal(bestPath) #, width=binary.width)
+    signal = convertPointsToSignal(bestPath, width=binary.width)
 
     # scores = [bestPathToPoint[point][0] ** .5 for point in points]
     # plt.imshow(binary.toColor().data, cmap='Greys')
