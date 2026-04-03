@@ -78,9 +78,20 @@ def displayImages(listOfImages: Sequence[Image]) -> None:
 def overlaySignalOnImage(
     signal: np.ndarray,
     image: ColorImage,
-    color: Tuple[np.uint8, np.uint8, np.uint8] = (85, 19, 248),
-    lineWidth: int = 3
+    color: Tuple[np.uint8, np.uint8, np.uint8] = (220, 20, 80),
+    lineWidth: int = 1,
+    alpha: float = 0.55
 ) -> ColorImage:
+    """Overlay the digitized signal on the ECG image with transparency.
+
+    Args:
+        signal: 1D array of y-pixel positions (one per x column)
+        image: The source ECG crop image
+        color: BGR color of the overlay line
+        lineWidth: Thickness of the drawn signal line in pixels
+        alpha: Opacity of the signal line (0.0 = invisible, 1.0 = solid).
+               Default 0.55 keeps the underlying paper visible for alignment checking.
+    """
     assert len(signal.shape) == 1
     assert isinstance(image, ColorImage)
 
@@ -90,11 +101,17 @@ def overlaySignalOnImage(
         else:
             return None
 
-    output = image.data.copy()
+    base = image.data.copy()
+    # Draw signal onto a blank overlay of the same size
+    overlay = base.copy()
     quantizedSignal = common.mapList(signal, quantize)
 
     for first, second in zip(enumerate(quantizedSignal[:-1]), enumerate(quantizedSignal[1:], start=1)):
         if first[1] is not None and second[1] is not None:
-            cv2.line(output, first, second, color, thickness=lineWidth)
+            cv2.line(overlay, first, second, color, thickness=lineWidth)
 
-    return ColorImage(output)
+    # Blend: output = alpha * overlay + (1 - alpha) * base
+    blended = cv2.addWeighted(overlay, alpha, base, 1.0 - alpha, 0)
+
+    return ColorImage(blended)
+

@@ -2,6 +2,7 @@ from pathlib import Path
 
 import numpy as np
 from numpy.lib.arraysetops import isin
+from scipy import interpolate as scipy_interpolate
 
 import ecgdigitize
 import ecgdigitize.signal
@@ -10,6 +11,48 @@ from ecgdigitize import common, visualization
 from ecgdigitize.image import ColorImage, Rectangle
 
 from model.InputParameters import InputParameters
+
+TARGET_SAMPLING_RATE = 500  # Hz
+
+
+def resampleSignal(signal: np.ndarray, nativeSamplingRate: float, targetRate: float = TARGET_SAMPLING_RATE) -> np.ndarray:
+    """Resample a signal from its native pixel-based sampling rate to a target rate (default 500Hz).
+    
+    Args:
+        signal: The signal array (one sample per pixel)
+        nativeSamplingRate: The current sampling rate in samples/second (= 1/samplingPeriod)
+        targetRate: The desired output sampling rate in Hz
+    
+    Returns:
+        Resampled signal array at the target rate
+    """
+    if nativeSamplingRate <= 0:
+        return signal
+    
+    nSamples = len(signal)
+    duration = nSamples / nativeSamplingRate  # Total duration in seconds
+    
+    # Create time axes
+    originalTimes = np.linspace(0, duration, nSamples, endpoint=False)
+    nTargetSamples = int(duration * targetRate)
+    
+    if nTargetSamples <= 0:
+        return signal
+    
+    targetTimes = np.linspace(0, duration, nTargetSamples, endpoint=False)
+    
+    # Handle NaN values: interpolate over them first
+    valid = ~np.isnan(signal)
+    if np.sum(valid) < 2:
+        return np.full(nTargetSamples, np.nan)
+    
+    # Linear interpolation, extrapolating edge values
+    f = scipy_interpolate.interp1d(
+        originalTimes[valid], signal[valid],
+        kind='linear', fill_value='extrapolate', bounds_error=False
+    )
+    
+    return f(targetTimes)
 
 
 def convertECGLeads(inputImage: ColorImage, parameters: InputParameters):
@@ -66,6 +109,7 @@ def convertECGLeads(inputImage: ColorImage, parameters: InputParameters):
 
     # TODO: Pass in the grid size in mm
     samplingPeriod = ecgdigitize.signal.ecgSignalSamplingPeriod(samplingPeriodInPixels, parameters.timeScale, gridSizeInMillimeters=1.0)
+    nativeSamplingRate = 1.0 / samplingPeriod  # Convert period to rate (Hz)
 
     # 3. Zero pad all signals on the left based on their start times and the samplingPeriod
     # take the max([len(x) for x in signals]) and zero pad all signals on the right
@@ -81,7 +125,23 @@ def convertECGLeads(inputImage: ColorImage, parameters: InputParameters):
         for leadId, signal in paddedSignals.items()
     }
 
+<<<<<<< Updated upstream
     return fullSignals, previews
+=======
+    # Resample all signals to 500Hz
+    resampledRawSignals = {
+        leadId: resampleSignal(signal, nativeSamplingRate)
+        for leadId, signal in fullRawSignals.items()
+    }
+    
+    resampledScaledSignals = {
+        leadId: resampleSignal(signal, nativeSamplingRate)
+        for leadId, signal in fullScaledSignals.items()
+    }
+
+    # Return both raw (pixels) and scaled (mV) signals, resampled to 500Hz
+    return resampledScaledSignals, previews, resampledRawSignals
+>>>>>>> Stashed changes
 
 
 def exportSignals(leadSignals, filePath, separator='\t'):

@@ -175,6 +175,100 @@ def convertPointsToSignal(points: List[Point], width: Optional[int] = None) -> n
     return signal
 
 
+def _refineSignalPeaks(signal: np.ndarray, binaryData: np.ndarray) -> np.ndarray:
+    """Post-processing: snap signal to the actual ink edge at sharp peaks only.
+    
+    Only activates when there's a significant local slope (>= MIN_SLOPE pixels),
+    so flat baseline regions stay at the center and look clean.
+    """
+    columns = np.swapaxes(binaryData, 0, 1)
+    refined = signal.copy()
+    MIN_SLOPE = 2  # Only snap when signal changes by at least this many pixels
+    
+    for x in range(len(refined)):
+        if np.isnan(refined[x]):
+            continue
+        
+        y_val = int(round(refined[x]))
+        if x >= len(columns):
+            continue
+            
+        col = columns[x]
+        
+        # Find the contiguous region that contains (or is nearest to) y_val
+        regions = findContiguousRegions(col)
+        if not regions:
+            continue
+        
+        # Find the region whose range contains y_val, or the closest one
+        best_region = None
+        best_dist = float('inf')
+        for start, end in regions:
+            if start <= y_val < end:
+                best_region = (start, end - 1)
+                best_dist = 0
+                break
+            dist = min(abs(y_val - start), abs(y_val - (end - 1)))
+            if dist < best_dist:
+                best_dist = dist
+                best_region = (start, end - 1)
+        
+        if best_region is None or best_dist > 3:
+            continue
+        
+        top_edge, bottom_edge = best_region
+        
+        # Only refine if the region is thick enough that center != edge
+        if bottom_edge - top_edge < 2:
+            continue
+        
+        # Determine local slope using neighbors
+        window = 3
+        left_y = None
+        right_y = None
+        for dx in range(1, window + 1):
+            if left_y is None and x - dx >= 0 and not np.isnan(refined[x - dx]):
+                left_y = refined[x - dx]
+            if right_y is None and x + dx < len(refined) and not np.isnan(refined[x + dx]):
+                right_y = refined[x + dx]
+        
+        if left_y is None and right_y is None:
+            continue
+        
+        # Calculate the slope magnitude - only snap if significant
+        slope_mag = 0
+        if left_y is not None:
+            slope_mag = max(slope_mag, abs(y_val - left_y))
+        if right_y is not None:
+            slope_mag = max(slope_mag, abs(y_val - right_y))
+        
+        if slope_mag < MIN_SLOPE:
+            continue  # Flat region - keep center, don't snap
+        
+        # Determine direction and snap
+        if left_y is not None and right_y is not None:
+            if left_y > y_val and right_y > y_val:
+                refined[x] = top_edge      # Peak top
+            elif left_y < y_val and right_y < y_val:
+                refined[x] = bottom_edge   # Peak bottom
+            elif left_y > y_val:
+                refined[x] = top_edge
+            elif left_y < y_val:
+                refined[x] = bottom_edge
+        elif left_y is not None:
+            if left_y > y_val:
+                refined[x] = top_edge
+            elif left_y < y_val:
+                refined[x] = bottom_edge
+        elif right_y is not None:
+            if right_y > y_val:
+                refined[x] = top_edge
+            elif right_y < y_val:
+                refined[x] = bottom_edge
+    
+    return refined
+
+
 def extractSignal(binary: BinaryImage) -> Optional[np.ndarray]:
     pointsByColumn = getPointLocations(binary.data)
     points = list(common.flatten(pointsByColumn))
@@ -233,6 +327,9 @@ def extractSignal(binary: BinaryImage) -> Optional[np.ndarray]:
         _, current, _ = bestPathToPoint[current]
 
     signal = convertPointsToSignal(bestPath) #, width=binary.width)
+
+    # Post-processing: snap sharp peaks to the actual ink edges
+    signal = _refineSignalPeaks(signal, binary.data)
 
     # scores = [bestPathToPoint[point][0] ** .5 for point in points]
     # plt.imshow(binary.toColor().data, cmap='Greys')
