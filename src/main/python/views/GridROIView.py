@@ -57,8 +57,8 @@ class GridBoxItem(QtWidgets.QGraphicsRectItem):
         self.expectedMmHeight = 5.0  # Default: 5mm (one large square)
 
         # Minimum width and height of box (in scene pixels)
-        self.minHeight = 10
-        self.minWidth = 10
+        self.minHeight = 1
+        self.minWidth = 1
 
         # QGraphicsScene that contains this GridBoxItem instance
         self.parentScene = parent
@@ -195,99 +195,46 @@ class GridBoxItem(QtWidgets.QGraphicsRectItem):
 
     def interactiveResize(self, mousePos):
         """
-        Perform shape interactive resize.
+        Perform shape interactive resize with snapping to image pixels.
         """
-        offset = self.handleSize + self.handleSpace
-        boundingRect = self.handleBounds()
         rect = self.rect()
-
+        # Map mouse position to scene, round it to snap to image pixels, then map back to local
+        scenePos = self.mapToScene(mousePos)
+        snappedScenePos = QtCore.QPointF(round(scenePos.x()), round(scenePos.y()))
+        localSnappedPos = self.mapFromScene(snappedScenePos)
+        
         self.prepareGeometryChange()
 
         if self.handleSelected == self.handleTopLeft:
-            fromX = self.mousePressRect.left()
-            fromY = self.mousePressRect.top()
-            toX = fromX + mousePos.x() - self.mousePressPos.x()
-            toY = fromY + mousePos.y() - self.mousePressPos.y()
-
-            if boundingRect.bottom() - toY > self.minHeight:
-                boundingRect.setTop(toY)
-                rect.setTop(boundingRect.top() + offset)
-            if boundingRect.right() - toX > self.minWidth:
-                boundingRect.setLeft(toX)
-                rect.setLeft(boundingRect.left() + offset)
-            self.setRect(rect)
-
+            rect.setTopLeft(localSnappedPos)
         elif self.handleSelected == self.handleTopMiddle:
-            fromY = self.mousePressRect.top()
-            toY = fromY + mousePos.y() - self.mousePressPos.y()
-            if boundingRect.bottom() - toY > self.minHeight:
-                boundingRect.setTop(toY)
-                rect.setTop(boundingRect.top() + offset)
-            self.setRect(rect)
-
+            rect.setTop(localSnappedPos.y())
         elif self.handleSelected == self.handleTopRight:
-            fromX = self.mousePressRect.right()
-            fromY = self.mousePressRect.top()
-            toX = fromX + mousePos.x() - self.mousePressPos.x()
-            toY = fromY + mousePos.y() - self.mousePressPos.y()
-            if boundingRect.bottom() - toY > self.minHeight:
-                boundingRect.setTop(toY)
-                rect.setTop(boundingRect.top() + offset)
-            if toX - boundingRect.left() > self.minWidth:
-                boundingRect.setRight(toX)
-                rect.setRight(boundingRect.right() - offset)
-            self.setRect(rect)
-
+            rect.setTopRight(localSnappedPos)
         elif self.handleSelected == self.handleMiddleLeft:
-            fromX = self.mousePressRect.left()
-            toX = fromX + mousePos.x() - self.mousePressPos.x()
-            if boundingRect.right() - toX > self.minWidth:
-                boundingRect.setLeft(toX)
-                rect.setLeft(boundingRect.left() + offset)
-            self.setRect(rect)
-
+            rect.setLeft(localSnappedPos.x())
         elif self.handleSelected == self.handleMiddleRight:
-            fromX = self.mousePressRect.right()
-            toX = fromX + mousePos.x() - self.mousePressPos.x()
-            if toX - boundingRect.left() > self.minWidth:
-                boundingRect.setRight(toX)
-                rect.setRight(boundingRect.right() - offset)
-            self.setRect(rect)
-
+            rect.setRight(localSnappedPos.x())
         elif self.handleSelected == self.handleBottomLeft:
-            fromX = self.mousePressRect.left()
-            fromY = self.mousePressRect.bottom()
-            toX = fromX + mousePos.x() - self.mousePressPos.x()
-            toY = fromY + mousePos.y() - self.mousePressPos.y()
-            if toY - boundingRect.top() > self.minHeight:
-                boundingRect.setBottom(toY)
-                rect.setBottom(boundingRect.bottom() - offset)
-            if boundingRect.right() - toX > self.minWidth:
-                boundingRect.setLeft(toX)
-                rect.setLeft(boundingRect.left() + offset)
-            self.setRect(rect)
-
+            rect.setBottomLeft(localSnappedPos)
         elif self.handleSelected == self.handleBottomMiddle:
-            fromY = self.mousePressRect.bottom()
-            toY = fromY + mousePos.y() - self.mousePressPos.y()
-            if toY - boundingRect.top() > self.minHeight:
-                boundingRect.setBottom(toY)
-                rect.setBottom(boundingRect.bottom() - offset)
-                self.setRect(rect)
-
+            rect.setBottom(localSnappedPos.y())
         elif self.handleSelected == self.handleBottomRight:
-            fromX = self.mousePressRect.right()
-            fromY = self.mousePressRect.bottom()
-            toX = fromX + mousePos.x() - self.mousePressPos.x()
-            toY = fromY + mousePos.y() - self.mousePressPos.y()
-            if toY - boundingRect.top() > self.minHeight:
-                boundingRect.setBottom(toY)
-                rect.setBottom(boundingRect.bottom() - offset)
-            if toX - boundingRect.left() > self.minWidth:
-                boundingRect.setRight(toX)
-                rect.setRight(boundingRect.right() - offset)
-            self.setRect(rect)
+            rect.setBottomRight(localSnappedPos)
 
+        # Enforce minimum size after snapping
+        if rect.width() < self.minWidth:
+            if self.handleSelected in [self.handleTopLeft, self.handleMiddleLeft, self.handleBottomLeft]:
+                rect.setLeft(rect.right() - self.minWidth)
+            else:
+                rect.setRight(rect.left() + self.minWidth)
+        if rect.height() < self.minHeight:
+            if self.handleSelected in [self.handleTopLeft, self.handleTopMiddle, self.handleTopRight]:
+                rect.setTop(rect.bottom() - self.minHeight)
+            else:
+                rect.setBottom(rect.top() + self.minHeight)
+
+        self.setRect(rect)
         self.updateHandlesPos()
 
     def itemChange(self, change, value):
@@ -330,6 +277,10 @@ class GridBoxItem(QtWidgets.QGraphicsRectItem):
             elif y+boxRect.height() >= sceneRect.bottom():
                 value.setY(sceneRect.bottom()-boxRect.height()-self.handles[self.handleTopLeft].y()-self.handleSpace)
 
+        # Snap to image pixels
+        value.setX(round(value.x()))
+        value.setY(round(value.y()))
+
         return QtCore.QPointF(value.x(), value.y())
 
     def shape(self):
@@ -349,39 +300,51 @@ class GridBoxItem(QtWidgets.QGraphicsRectItem):
         Paint the node in the graphic view.
         """
         self.updateHandlesPos()
+
         if self.isSelected():
-            # Draw box: semi-transparent blue fill
-            painter.setPen(QtGui.QPen(QtGui.QColor(0, 100, 255), 2.0, QtCore.Qt.SolidLine))
-            painter.setBrush(QtGui.QBrush(QtGui.QColor(0, 100, 255, 40)))
+            # --- Cosmetic dashed border: always 1px on screen regardless of zoom ---
+            dashPen = QtGui.QPen(QtGui.QColor(0, 100, 255), 1.0, QtCore.Qt.DashLine)
+            dashPen.setCosmetic(True)          # fixed screen-pixel width at any zoom
+            dashPen.setDashPattern([6, 4])     # 6px dash, 4px gap (screen pixels)
+            painter.setPen(dashPen)
+            painter.setBrush(QtGui.QBrush(QtGui.QColor(0, 100, 255, 15))) # More transparent
             painter.drawRect(self.rect())
 
             # Draw label clipped inside box
             painter.save()
             painter.setClipping(True)
             painter.setClipRect(self.rect())
-            painter.setPen(QtGui.QPen(QtGui.QColor(0, 100, 255), 1.5))
+            labelPen = QtGui.QPen(QtGui.QColor(0, 100, 255), 1.0)
+            labelPen.setCosmetic(True)
+            painter.setPen(labelPen)
             painter.setFont(QtGui.QFont('Default', 10))
             label = f"{self.expectedMmWidth}mm Grid"
             painter.drawText(self.rect(), QtCore.Qt.AlignCenter, label)
             painter.restore()
 
-            # Draw resize handles (no clip)
+            # Draw resize handles with cosmetic pen (always thin on screen)
             painter.setRenderHint(QtGui.QPainter.Antialiasing)
-            painter.setBrush(QtGui.QBrush(QtGui.QColor(0, 100, 255, 200)))
-            painter.setPen(QtGui.QPen(QtGui.QColor(0, 100, 255), 1.0, QtCore.Qt.SolidLine))
+            handlePen = QtGui.QPen(QtGui.QColor(0, 100, 255), 1.0, QtCore.Qt.SolidLine)
+            handlePen.setCosmetic(True)
+            painter.setPen(handlePen)
+            painter.setBrush(QtGui.QBrush(QtGui.QColor(0, 100, 255, 180)))
             for handle, rect in self.handles.items():
                 painter.drawRect(rect)
         else:
-            # Draw box: light semi-transparent grey fill
-            painter.setPen(QtGui.QPen(QtGui.QColor(80, 80, 80), 1.5, QtCore.Qt.SolidLine))
-            painter.setBrush(QtGui.QBrush(QtGui.QColor(100, 100, 100, 30)))
+            # --- Cosmetic solid thin grey border when unselected ---
+            solidPen = QtGui.QPen(QtGui.QColor(80, 80, 80), 1.0, QtCore.Qt.SolidLine)
+            solidPen.setCosmetic(True)
+            painter.setPen(solidPen)
+            painter.setBrush(QtGui.QBrush(QtGui.QColor(100, 100, 100, 20)))
             painter.drawRect(self.rect())
 
             # Draw label clipped inside box
             painter.save()
             painter.setClipping(True)
             painter.setClipRect(self.rect())
-            painter.setPen(QtGui.QPen(QtGui.QColor(60, 60, 60), 1.0))
+            textPen = QtGui.QPen(QtGui.QColor(60, 60, 60), 1.0)
+            textPen.setCosmetic(True)
+            painter.setPen(textPen)
             painter.setFont(QtGui.QFont('Default', 10))
             label = f"Grid {self.gridId+1}"
             painter.drawText(self.rect(), QtCore.Qt.AlignCenter, label)

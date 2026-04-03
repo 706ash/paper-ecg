@@ -53,8 +53,8 @@ class ROIItem(QtWidgets.QGraphicsRectItem):
         self.startTime = 0.0
 
         # Minimum width and height of box (in pixels)
-        self.minHeight = 50
-        self.minWidth = 50
+        self.minHeight = 1
+        self.minWidth = 1
 
         # QGraphicsScene that contains this ROIItem instance
         self.parentScene = parent
@@ -192,120 +192,46 @@ class ROIItem(QtWidgets.QGraphicsRectItem):
 
     def interactiveResize(self, mousePos):
         """
-        Perform shape interactive resize.
+        Perform shape interactive resize with snapping to image pixels.
         """
-        offset = self.handleSize + self.handleSpace
-        sceneRect = self.parentScene.sceneRect()
-        boundingRect = self.handleBounds()
-        mappedRect = self.mapToScene(self.handleBounds()).boundingRect()
         rect = self.rect()
-        diff = QtCore.QPointF(0, 0)
-
+        # Map mouse position to scene, round it to snap to image pixels, then map back to local
+        scenePos = self.mapToScene(mousePos)
+        snappedScenePos = QtCore.QPointF(round(scenePos.x()), round(scenePos.y()))
+        localSnappedPos = self.mapFromScene(snappedScenePos)
+        
         self.prepareGeometryChange()
 
         if self.handleSelected == self.handleTopLeft:
-            fromX = self.mousePressRect.left()
-            fromY = self.mousePressRect.top()
-            toX = fromX + mousePos.x() - self.mousePressPos.x()
-            toY = fromY + mousePos.y() - self.mousePressPos.y()
-
-            if boundingRect.bottom() - toY > self.minHeight and mappedRect.y() - (boundingRect.y()-toY) >= sceneRect.top():
-                diff.setY(toY - fromY)
-                boundingRect.setTop(toY)
-                rect.setTop(boundingRect.top() + offset)
-            if boundingRect.right() - toX > self.minWidth and mappedRect.x() - (boundingRect.x()-toX) >= sceneRect.left():
-                    diff.setX(toX - fromX)
-                    boundingRect.setLeft(toX)
-                    rect.setLeft(boundingRect.left() + offset)
-            self.setRect(rect)
-
+            rect.setTopLeft(localSnappedPos)
         elif self.handleSelected == self.handleTopMiddle:
-
-            fromY = self.mousePressRect.top()
-            toY = fromY + mousePos.y() - self.mousePressPos.y()
-            if boundingRect.bottom() - toY > self.minHeight and mappedRect.y() - (boundingRect.y()-toY) >= sceneRect.top():
-                diff.setY(toY - fromY)
-                boundingRect.setTop(toY)
-                rect.setTop(boundingRect.top() + offset)
-            self.setRect(rect)
-
+            rect.setTop(localSnappedPos.y())
         elif self.handleSelected == self.handleTopRight:
-
-            fromX = self.mousePressRect.right()
-            fromY = self.mousePressRect.top()
-            toX = fromX + mousePos.x() - self.mousePressPos.x()
-            toY = fromY + mousePos.y() - self.mousePressPos.y()
-            if boundingRect.bottom() - toY > self.minHeight and mappedRect.y() - (boundingRect.y()-toY) >= sceneRect.top():
-                diff.setY(toY - fromY)
-                boundingRect.setTop(toY)
-                rect.setTop(boundingRect.top() + offset)
-            if toX - boundingRect.left() > self.minWidth and mappedRect.topRight().x() - (boundingRect.topRight().x()-toX) <= sceneRect.right():
-                diff.setX(toX - fromX)
-                boundingRect.setRight(toX)
-                rect.setRight(boundingRect.right() - offset)
-            self.setRect(rect)
-
+            rect.setTopRight(localSnappedPos)
         elif self.handleSelected == self.handleMiddleLeft:
-
-            fromX = self.mousePressRect.left()
-            toX = fromX + mousePos.x() - self.mousePressPos.x()
-            if boundingRect.right() - toX > self.minWidth and mappedRect.x() - (boundingRect.x()-toX) >= sceneRect.left():
-                diff.setX(toX - fromX)
-                boundingRect.setLeft(toX)
-                rect.setLeft(boundingRect.left() + offset)
-            self.setRect(rect)
-
+            rect.setLeft(localSnappedPos.x())
         elif self.handleSelected == self.handleMiddleRight:
-            fromX = self.mousePressRect.right()
-            toX = fromX + mousePos.x() - self.mousePressPos.x()
-            if toX - boundingRect.left() > self.minWidth and mappedRect.right() - (boundingRect.right()-toX) <= sceneRect.right():
-                diff.setX(toX - fromX)
-                boundingRect.setRight(toX)
-                rect.setRight(boundingRect.right() - offset)
-            self.setRect(rect)
-
+            rect.setRight(localSnappedPos.x())
         elif self.handleSelected == self.handleBottomLeft:
-
-            fromX = self.mousePressRect.left()
-            fromY = self.mousePressRect.bottom()
-            toX = fromX + mousePos.x() - self.mousePressPos.x()
-            toY = fromY + mousePos.y() - self.mousePressPos.y()
-            if toY - boundingRect.top() > self.minHeight and mappedRect.bottomLeft().y() - (boundingRect.bottomLeft().y()-toY) <= sceneRect.bottom():
-                diff.setY(toY - fromY)
-                boundingRect.setBottom(toY)
-                rect.setBottom(boundingRect.bottom() - offset)
-            if boundingRect.right() - toX > self.minWidth and mappedRect.x() - (boundingRect.x()-toX) >= sceneRect.left():
-                diff.setX(toX - fromX)
-                boundingRect.setLeft(toX)
-                rect.setLeft(boundingRect.left() + offset)
-            self.setRect(rect)
-
+            rect.setBottomLeft(localSnappedPos)
         elif self.handleSelected == self.handleBottomMiddle:
-
-            fromY = self.mousePressRect.bottom()
-            toY = fromY + mousePos.y() - self.mousePressPos.y()
-            if toY - boundingRect.top() > self.minHeight and mappedRect.bottom() - (boundingRect.bottom()-toY) <= sceneRect.bottom():
-                diff.setY(toY - fromY)
-                boundingRect.setBottom(toY)
-                rect.setBottom(boundingRect.bottom() - offset)
-                self.setRect(rect)
-
+            rect.setBottom(localSnappedPos.y())
         elif self.handleSelected == self.handleBottomRight:
+            rect.setBottomRight(localSnappedPos)
 
-            fromX = self.mousePressRect.right()
-            fromY = self.mousePressRect.bottom()
-            toX = fromX + mousePos.x() - self.mousePressPos.x()
-            toY = fromY + mousePos.y() - self.mousePressPos.y()
-            if toY - boundingRect.top() > self.minHeight and mappedRect.bottomRight().y() - (boundingRect.bottomRight().y()-toY) <= sceneRect.bottom():
-                diff.setY(toY - fromY)
-                boundingRect.setBottom(toY)
-                rect.setBottom(boundingRect.bottom() - offset)
-            if toX - boundingRect.left() > self.minWidth and mappedRect.bottomRight().x() - (boundingRect.bottomRight().x()-toX) <= sceneRect.right():
-                diff.setX(toX - fromX)
-                boundingRect.setRight(toX)
-                rect.setRight(boundingRect.right() - offset)
-            self.setRect(rect)
+        # Enforce minimum size after snapping
+        if rect.width() < self.minWidth:
+            if self.handleSelected in [self.handleTopLeft, self.handleMiddleLeft, self.handleBottomLeft]:
+                rect.setLeft(rect.right() - self.minWidth)
+            else:
+                rect.setRight(rect.left() + self.minWidth)
+        if rect.height() < self.minHeight:
+            if self.handleSelected in [self.handleTopLeft, self.handleTopMiddle, self.handleTopRight]:
+                rect.setTop(rect.bottom() - self.minHeight)
+            else:
+                rect.setBottom(rect.top() + self.minHeight)
 
+        self.setRect(rect)
         self.updateHandlesPos()
 
 
@@ -348,6 +274,10 @@ class ROIItem(QtWidgets.QGraphicsRectItem):
             elif y+boxRect.height() >= sceneRect.bottom():
                 value.setY(sceneRect.bottom()-boxRect.height()-self.handles[self.handleTopLeft].y()-self.handleSpace)
 
+        # Snap to image pixels
+        value.setX(round(value.x()))
+        value.setY(round(value.y()))
+
         return QtCore.QPointF(value.x(), value.y())
 
     def shape(self):
@@ -371,26 +301,36 @@ class ROIItem(QtWidgets.QGraphicsRectItem):
         fontMetrics = QtGui.QFontMetrics(painter.font())
 
         if self.isSelected():
-            # Set color (red) and draw box (when selected)
-            painter.setPen(QtGui.QPen(QtGui.QColor(255, 0, 0), 2.0, QtCore.Qt.SolidLine))
-            painter.setBrush(QtGui.QBrush(QtGui.QColor(255, 0, 0, 64)))
+            # --- Cosmetic dashed border: always 1px on screen regardless of zoom ---
+            dashPen = QtGui.QPen(QtGui.QColor(255, 0, 0), 1.0, QtCore.Qt.DashLine)
+            dashPen.setCosmetic(True)          # fixed screen-pixel width at any zoom
+            dashPen.setDashPattern([6, 4])     # 6px dash, 4px gap (screen pixels)
+            painter.setPen(dashPen)
+            painter.setBrush(QtGui.QBrush(QtGui.QColor(255, 0, 0, 15))) # More transparent
             painter.drawRect(self.rect())
 
-            # Set color and paint resize handles
+            # Draw resize handles with cosmetic pen (always thin on screen)
             painter.setRenderHint(QtGui.QPainter.Antialiasing)
+            handlePen = QtGui.QPen(QtGui.QColor(255, 0, 0), 1.0, QtCore.Qt.SolidLine)
+            handlePen.setCosmetic(True)
+            painter.setPen(handlePen)
             painter.setBrush(QtGui.QBrush(QtGui.QColor(255, 0, 0, 255)))
-            painter.setPen(QtGui.QPen(QtGui.QColor(255, 0, 0, 255), 2.0, QtCore.Qt.SolidLine, QtCore.Qt.RoundCap, QtCore.Qt.RoundJoin))
 
             for handle, rect in self.handles.items():
                 painter.drawRect(rect)
         else:
-            # Set color (grey) and draw box (unselected)
-            painter.setPen(QtGui.QPen(QtGui.QColor(128, 128, 128), 2.0, QtCore.Qt.SolidLine))
+            # --- Cosmetic solid thin grey border when unselected ---
+            solidPen = QtGui.QPen(QtGui.QColor(128, 128, 128), 1.0, QtCore.Qt.SolidLine)
+            solidPen.setCosmetic(True)
+            painter.setPen(solidPen)
             painter.setBrush(QtGui.QBrush(QtGui.QColor(128, 128, 128, 40)))
             painter.drawRect(self.rect())
             
             painter.save()
             painter.setClipRect(self.rect())
+            textPen = QtGui.QPen(QtGui.QColor(128, 128, 128), 1.0)
+            textPen.setCosmetic(True)
+            painter.setPen(textPen)
             painter.drawText(self.rect(), QtCore.Qt.AlignCenter, self.leadId)
             painter.restore()
 
