@@ -240,6 +240,7 @@ class ImageView(QtWidgets.QGraphicsView):
         
         baseline = BaselineItem(self._scene, baselineId, y_position)
         self._scene.addItem(baseline)
+        self.updateRoiItem.emit(baseline)
         return baseline
 
     def getBaselineY(self, baselineId=0):

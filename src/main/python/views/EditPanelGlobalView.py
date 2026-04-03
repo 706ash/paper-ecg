@@ -18,6 +18,7 @@ class EditPanelGlobalView(QtWidgets.QWidget):
 
         self.sizePolicy().setHorizontalPolicy(QtWidgets.QSizePolicy.Expanding)
         self.sizePolicy().setVerticalPolicy(QtWidgets.QSizePolicy.Fixed)
+        self.setMinimumWidth(380)
 
         self.initUI()
         self.connectUI()
@@ -72,7 +73,7 @@ class EditPanelGlobalView(QtWidgets.QWidget):
                         Label(
                             owner=self,
                             name="baseline1Label",
-                            text="Row 1 (I,II,III): "
+                            text="Row 1 (I, aVR, V1, V4): "
                         ),
                         Label(
                             owner=self,
@@ -84,7 +85,7 @@ class EditPanelGlobalView(QtWidgets.QWidget):
                         Label(
                             owner=self,
                             name="baseline2Label",
-                            text="Row 2 (aVR,aVL,V1): "
+                            text="Row 2 (II, aVL, V2, V5): "
                         ),
                         Label(
                             owner=self,
@@ -96,7 +97,7 @@ class EditPanelGlobalView(QtWidgets.QWidget):
                         Label(
                             owner=self,
                             name="baseline3Label",
-                            text="Row 3 (V2,V3,V4): "
+                            text="Row 3 (III, aVF, V3, V6): "
                         ),
                         Label(
                             owner=self,
@@ -303,11 +304,11 @@ class EditPanelGlobalView(QtWidgets.QWidget):
         
         # Update each baseline display
         for i in range(3):
-            label = self.findChild(QtWidgets.QLabel, f"baseline{i+1}YValue")
+            label = getattr(self, f"baseline{i+1}YValue", None)
             if label:
                 baselineY = baselines.get(i, None)
                 if baselineY is not None:
-                    label.setText(f"{baselineY:.1f} pixels")
+                    label.setText(f"{baselineY:.1f}")
                     label.setStyleSheet("color: green; font-weight: bold;")
                 else:
                     label.setText("Not set")

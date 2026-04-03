@@ -51,7 +51,7 @@ class BaselineItem(QtWidgets.QGraphicsRectItem):
         self.setRect(0, y_position, 100, 2)
         
         # Row labels for 12-lead ECG
-        self.rowLabels = ["Row 1 (I, II, III)", "Row 2 (aVR, aVL, V1)", "Row 3 (V2, V3, V4)"]
+        self.rowLabels = ["Row 1 (I, aVR, V1, V4)", "Row 2 (II, aVL, V2, V5)", "Row 3 (III, aVF, V3, V6)"]
 
     def boundingRect(self):
         """Returns a rect that covers the entire image width to prevent artifacts."""

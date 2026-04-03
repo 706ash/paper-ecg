@@ -69,8 +69,8 @@ class Editor(QtWidgets.QWidget):
         self.editPanel.setCurrentIndex(0)
 
         # Constraint the width of the adjustable side panel on the right of the editor
-        self.controlPanel.setMinimumWidth(250)
-        self.controlPanel.setMaximumWidth(450)
+        self.controlPanel.setMinimumWidth(400)
+        self.controlPanel.setMaximumWidth(500)
 
     def connectUI(self):
         self.mainWindow.addLead1.triggered.connect(lambda: self.addLead(LeadId['I']))
