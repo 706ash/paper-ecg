@@ -36,7 +36,9 @@ def plot_ecg_csv():
     time_array = np.arange(num_samples) / SAMPLING_RATE
 
     # 3. Set up the display plot
-    fig, ax = plt.subplots(figsize=(12, 5))
+    fig, ax = plt.subplots(figsize=(15, 6))
+
+    all_plotted_data = []
 
     # Depending on how many leads were captured, loop through and plot each column
     for col_index in range(num_leads):
@@ -45,12 +47,28 @@ def plot_ecg_csv():
             
         signal = data[col_index].values
         ax.plot(time_array, signal, linewidth=1.5, label=f"Lead {col_index + 1}")
+        
+        # Only consider finite non-zero values for axis scaling
+        finite_vals = signal[np.isfinite(signal) & (signal != 0)]
+        if len(finite_vals) > 0:
+            all_plotted_data.extend(finite_vals)
 
     # 4. Decorate the axes specifically for ECG tracing conventions
     ax.set_title("Exported Paper ECG Signals")
     ax.set_xlabel("Time (Seconds)")
     ax.set_ylabel("Amplitude (mV)")
     
+    # Calculate better Y-axis limits if we have data
+    if all_plotted_data:
+        try:
+            y_min = np.nanmin(all_plotted_data)
+            y_max = np.nanmax(all_plotted_data)
+            if np.isfinite(y_min) and np.isfinite(y_max):
+                margin = (y_max - y_min) * 0.2 if y_max != y_min else 1.0
+                ax.set_ylim(y_min - margin, y_max + margin)
+        except Exception:
+            pass
+
     if num_leads > 1:
         ax.legend(loc="upper right")
         
@@ -63,4 +81,3 @@ def plot_ecg_csv():
 
 if __name__ == "__main__":
     plot_ecg_csv()
-
