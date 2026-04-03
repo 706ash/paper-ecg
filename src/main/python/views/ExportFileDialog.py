@@ -365,15 +365,38 @@ class ExportFileDialog(QtWidgets.QDialog):
         previewDialog.exec_()
         
     def displaySignalPlot(self, signal, title):
-        # We can just pop up a matplotlib figure directly. Matplotlib's default 
-        # Qt5Agg backend integrates well enough to just show it in a new window.
+        from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+        from matplotlib.backends.backend_qt5agg import NavigationToolbar2QT as NavigationToolbar
+
+        # Use a native QDialog to embed the plot. This prevents the event 
+        # loop from fighting with Matplotlib's standalone window manager
+        dialog = QtWidgets.QDialog(self)
+        dialog.setWindowTitle(f"Extracted 1D Signal - Lead {title}")
+        dialog.resize(1000, 400)
+        
+        layout = QtWidgets.QVBoxLayout(dialog)
+        
         fig, ax = plt.subplots(figsize=(10, 4))
-        # Y values increase downwards in image pixels. Let's invert Y axis for intuition.
-        ax.plot(signal, linewidth=2)
-        ax.invert_yaxis()
+        
+        import numpy as np
+        # signal is correctly sampled at 500 Hz, meaning dt = 0.002 seconds
+        times = np.arange(len(signal)) * 0.002
+        
+        ax.plot(times, signal, linewidth=2)
         
         ax.set_title(f"Extracted 1D Signal - Lead {title}")
-        ax.set_xlabel("Time (500 Hz samples)")
-        ax.set_ylabel("Amplitude")
-        plt.tight_layout()
-        plt.show(block=False)
+        ax.set_xlabel("Time (Seconds)")
+        ax.set_ylabel("Amplitude (mV)")
+        fig.tight_layout()
+        
+        canvas = FigureCanvas(fig)
+        toolbar = NavigationToolbar(canvas, dialog)
+        layout.addWidget(toolbar)
+        layout.addWidget(canvas)
+        
+        # Keep reference to avoid garbage collection
+        if not hasattr(self, 'open_plots'):
+            self.open_plots = []
+        self.open_plots.append(dialog)
+        
+        dialog.show()

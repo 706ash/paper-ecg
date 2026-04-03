@@ -128,7 +128,7 @@ class MainController:
             )
             errorDialog.exec_()
         else:
-            exportFileDialog = ExportFileDialog(previewImages, rawPixelSignals)
+            exportFileDialog = ExportFileDialog(previewImages, extractedSignals)
             if exportFileDialog.exec_():
                 # Select which signals to export based on user's choice
                 signalsToExport = rawPixelSignals if exportFileDialog.exportUnit == "pixels" else extractedSignals
