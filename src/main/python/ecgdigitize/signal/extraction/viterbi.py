@@ -101,15 +101,46 @@ def searchArea(initialRow: int, radius: int) -> Iterable[Tuple[int, int]]:
 def getPointLocations(image: np.ndarray) -> List[List[Point]]:
     columns = np.swapaxes(image, 0, 1)
 
-    pointLocations = []
-
+    raw_regions = []
     # Scan horizontally across the image
     for column, pixels in enumerate(columns):
-        # Get all points that could be part of a signal
-        rows = findContiguousRegionCenters(pixels)
-        points = common.mapList(rows, lambda row: Point(column, row))
+        regions = list(findContiguousRegions(pixels))
+        raw_regions.append(regions)
 
-        pointLocations.append(points)
+    def get_c_at(c_idx, relative_to):
+        if 0 <= c_idx < len(raw_regions) and raw_regions[c_idx]:
+            return min([(s+e)/2.0 for s, e in raw_regions[c_idx]], key=lambda c: abs(c - relative_to))
+        return relative_to
+
+    pointLocations = []
+    for col in range(len(columns)):
+        regions = raw_regions[col]
+        col_points = []
+        
+        for start, end in regions:
+            center = (start + end) / 2.0
+            height = end - start
+            
+            y_point = center
+            
+            if height >= 5:
+                # Look slightly further out in case of noise or 2-pixel wide apex
+                c_prev = get_c_at(col - 1, center)
+                if c_prev == center: c_prev = get_c_at(col - 2, center)
+                
+                c_next = get_c_at(col + 1, center)
+                if c_next == center: c_next = get_c_at(col + 2, center)
+                
+                # Upward peak (neighbors have higher Y index meaning they are lower on screen)
+                if c_prev > center and c_next > center:
+                    y_point = start
+                # Downward peak (neighbors have lower Y index meaning they are higher on screen)
+                elif c_prev < center and c_next < center:
+                    y_point = end
+                    
+            col_points.append(Point(col, y_point))
+            
+        pointLocations.append(col_points)
 
     return pointLocations
 
