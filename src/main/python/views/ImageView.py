@@ -11,7 +11,9 @@ from PyQt5 import QtGui, QtCore, QtWidgets
 
 import ImageUtilities
 from views.ROIView import ROI_ITEM_TYPE
-from model.Lead import Lead, LeadId
+from views.GridROIView import GRID_BOX_ITEM_TYPE
+from views.BaselineView import BASELINE_ITEM_TYPE, BaselineItem
+from model.Lead import Lead, LeadId, GridBox
 
 
 MACOS_SCROLL_KEYS = {QtCore.Qt.Key_Meta}  # Option key
@@ -161,6 +163,141 @@ class ImageView(QtWidgets.QGraphicsView):
         for item in self._scene.items():
             if item.type == ROI_ITEM_TYPE and item.leadId == leadId:
                 item.startTime = startTime
+
+    def getGridBoxCount(self):
+        """Return the number of grid boxes in the scene."""
+        count = 0
+        for item in self._scene.items():
+            if item.type == GRID_BOX_ITEM_TYPE:
+                count += 1
+        return count
+
+    def getAllGridBoxesAsList(self):
+        """Return all grid boxes in the scene as a list of GridBox objects."""
+        gridBoxes = []
+        for item in self._scene.items():
+            if item.type == GRID_BOX_ITEM_TYPE:
+                gridBoxes.append(GridBox(
+                    x=item.x,
+                    y=item.y,
+                    width=item.width,
+                    height=item.height,
+                    expectedMmWidth=item.expectedMmWidth,
+                    expectedMmHeight=item.expectedMmHeight
+                ))
+        return gridBoxes
+
+    def removeGridBox(self, gridId):
+        """Remove a specific grid box from the scene."""
+        for item in self._scene.items():
+            if item.type == GRID_BOX_ITEM_TYPE and item.gridId == gridId:
+                self._scene.removeItem(item)
+
+    def removeAllGridBoxes(self):
+        """Remove all grid boxes from the scene."""
+        for item in self._scene.items():
+            if item.type == GRID_BOX_ITEM_TYPE:
+                self._scene.removeItem(item)
+
+    def getAveragePixelPerMmFromGridBoxes(self):
+        """Calculate the average pixel-to-mm ratio from all grid boxes.
+        
+        Returns:
+            tuple: (avgPixelsPerMmX, avgPixelsPerMmY) or (None, None) if no grid boxes
+        """
+        gridBoxes = self.getAllGridBoxesAsList()
+        if not gridBoxes:
+            return None, None
+        
+        totalPixelsPerMmX = 0
+        totalPixelsPerMmY = 0
+        count = 0
+        
+        for gridBox in gridBoxes:
+            px, py = gridBox.getPixelPerMm()
+            if px is not None and py is not None:
+                totalPixelsPerMmX += px
+                totalPixelsPerMmY += py
+                count += 1
+        
+        if count > 0:
+            return totalPixelsPerMmX / count, totalPixelsPerMmY / count
+        return None, None
+
+    def addBaseline(self, y_position=None, baselineId=0):
+        """Add a baseline (isoelectric line) marker for a specific row.
+        
+        Args:
+            y_position: Initial Y position (defaults to image height / 2)
+            baselineId: ID of baseline (0, 1, or 2 for 3-row ECG)
+        """
+        if y_position is None:
+            # Default positions for 3 baselines
+            y_position = self.imageRect.height() * (0.2 + baselineId * 0.3)
+        
+        # Remove existing baseline with same ID if present
+        self.removeBaseline(baselineId)
+        
+        baseline = BaselineItem(self._scene, baselineId, y_position)
+        self._scene.addItem(baseline)
+        return baseline
+
+    def getBaselineY(self, baselineId=0):
+        """Get the Y coordinate of a specific baseline.
+        
+        Args:
+            baselineId: ID of baseline (0, 1, or 2)
+        Returns:
+            float: Y coordinate or None if not found
+        """
+        for item in self._scene.items():
+            if item.type == BASELINE_ITEM_TYPE and item.baselineId == baselineId:
+                return item.getBaselineY()
+        return None
+
+    def getAllBaselineYs(self):
+        """Get Y coordinates of all baselines.
+        
+        Returns:
+            dict: {baselineId: y_position}
+        """
+        baselines = {}
+        for item in self._scene.items():
+            if item.type == BASELINE_ITEM_TYPE:
+                baselines[item.baselineId] = item.getBaselineY()
+        return baselines
+
+    def removeBaseline(self, baselineId=None):
+        """Remove baseline(s).
+        
+        Args:
+            baselineId: Specific baseline ID to remove, or None to remove all
+        """
+        for item in list(self._scene.items()):
+            if item.type == BASELINE_ITEM_TYPE:
+                if baselineId is None or item.baselineId == baselineId:
+                    self._scene.removeItem(item)
+
+    def hasBaseline(self, baselineId=None):
+        """Check if baseline marker(s) exist.
+        
+        Args:
+            baselineId: Specific baseline ID to check, or None to check any
+        Returns:
+            bool: True if baseline exists
+        """
+        for item in self._scene.items():
+            if item.type == BASELINE_ITEM_TYPE:
+                if baselineId is None or item.baselineId == baselineId:
+                    return True
+        return False
+
+    def addThreeBaselines(self):
+        """Add all 3 baselines for 12-lead ECG (one per row)."""
+        height = self.imageRect.height()
+        self.addBaseline(height * 0.2, baselineId=0)  # Top row
+        self.addBaseline(height * 0.5, baselineId=1)  # Middle row
+        self.addBaseline(height * 0.8, baselineId=2)  # Bottom row
 
     def keyPressEvent(self, event: QtGui.QKeyEvent) -> None:
         if onMacOS and event.key() in MACOS_SCROLL_KEYS:

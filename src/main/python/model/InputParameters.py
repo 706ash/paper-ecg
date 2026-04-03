@@ -1,7 +1,7 @@
-from typing import Dict
+from typing import Dict, List, Optional
 import dataclasses
 
-from model.Lead import LeadId, Lead
+from model.Lead import LeadId, Lead, GridBox
 
 
 @dataclasses.dataclass(frozen=True)
@@ -10,3 +10,5 @@ class InputParameters:
     timeScale: int
     voltScale: int
     leads: Dict[LeadId, Lead]
+    gridBoxes: List[GridBox] = dataclasses.field(default_factory=list)
+    baselineYs: Dict[int, float] = dataclasses.field(default_factory=dict)  # {baselineId: y_position}

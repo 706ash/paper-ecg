@@ -15,6 +15,7 @@ class ExportFileDialog(QtWidgets.QDialog):
         self.leadPreviewImages = previewImages
         self.fileExportPath = None
         self.fileType = None
+        self.exportUnit = "pixels"  # Default to pixels
         self.setWindowTitle("Export ECG Data")
         self.resize(700, 400)  #arbitrary size - just set to this for development purposes
         self.buildUI()
@@ -49,6 +50,22 @@ class ExportFileDialog(QtWidgets.QDialog):
                     name="chooseFileButton",
                     text="..."
                 )
+            ]),
+            HorizontalBoxLayout(owner=self, name="exportTypeLayout", contents=[
+                    Label(
+                        owner=self,
+                        name="exportTypeLabel",
+                        text="Export Type: "
+                    ),
+                    ComboBox(
+                        owner=self,
+                        name="exportTypeDropdown",
+                        items=[
+                            "Pixel Coordinates",
+                            "Voltage (mV)"
+                        ]
+                    )
+
             ]),
             HorizontalBoxLayout(owner=self, name="delimiterChoiceLayout", contents=[
                     Label(
@@ -104,6 +121,7 @@ class ExportFileDialog(QtWidgets.QDialog):
         ])
 
         self.delimiterChoiceLayout.setAlignment(QtCore.Qt.AlignLeft)
+        self.exportTypeLayout.setAlignment(QtCore.Qt.AlignLeft)
         self.confirmCancelButtonLayout.setAlignment(QtCore.Qt.AlignBottom | QtCore.Qt.AlignRight)
 
         self.setLayout(self.mainLayout)
@@ -114,6 +132,14 @@ class ExportFileDialog(QtWidgets.QDialog):
         self.chooseFileButton.clicked.connect(lambda: self.openSaveFileDialog())
         self.confirmButton.clicked.connect(lambda: self.confirmExportPath())
         self.cancelButton.clicked.connect(lambda: self.close())
+        self.exportTypeDropdown.currentTextChanged.connect(self.updateExportType)
+
+    def updateExportType(self, text):
+        """Update the export unit based on dropdown selection."""
+        if text == "Voltage (mV)":
+            self.exportUnit = "mV"
+        else:
+            self.exportUnit = "pixels"
 
     def openSaveFileDialog(self):
         path, selectedFilter = QtWidgets.QFileDialog.getSaveFileName(

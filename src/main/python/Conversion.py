@@ -53,42 +53,62 @@ def convertECGLeads(inputImage: ColorImage, parameters: InputParameters):
 
     samplingPeriodInPixels = gridHeightInPixels = common.mean(spacings)
 
-    # Scale signals
-    # TODO: Pass in the grid size in mm
+    # Store raw signals (in pixels, zero-referenced but not scaled to mV)
+    rawSignals = {
+        leadId: ecgdigitize.signal.zeroECGSignal(signal)
+        for leadId, signal in signals.items()
+    }
+
+    # Scale signals to mV
     scaledSignals = {
         leadId: ecgdigitize.signal.verticallyScaleECGSignal(
-            ecgdigitize.signal.zeroECGSignal(signal),
+            rawSignal,
             gridHeightInPixels,
             parameters.voltScale, gridSizeInMillimeters=1.0
         )
-        for leadId, signal in signals.items()
+        for leadId, rawSignal in rawSignals.items()
     }
 
     # TODO: Pass in the grid size in mm
     samplingPeriod = ecgdigitize.signal.ecgSignalSamplingPeriod(samplingPeriodInPixels, parameters.timeScale, gridSizeInMillimeters=1.0)
 
-    # 3. Zero pad all signals on the left based on their start times and the samplingPeriod
-    # take the max([len(x) for x in signals]) and zero pad all signals on the right
-    paddedSignals = {
+    # Zero pad all signals on the left based on their start times and the samplingPeriod
+    paddedRawSignals = {
+        leadId: common.padLeft(signal, int(parameters.leads[leadId].startTime / samplingPeriod))
+        for leadId, signal in rawSignals.items()
+    }
+    
+    paddedScaledSignals = {
         leadId: common.padLeft(signal, int(parameters.leads[leadId].startTime / samplingPeriod))
         for leadId, signal in scaledSignals.items()
     }
 
-    # (should already be handled by (3)) Replace any None signals with all zeros
-    maxLength = max([len(s) for _, s in paddedSignals.items()])
-    fullSignals = {
+    # Pad all signals on the right to same length
+    maxLength = max([len(s) for _, s in paddedRawSignals.items()])
+    fullRawSignals = {
         leadId: common.padRight(signal, maxLength - len(signal))
-        for leadId, signal in paddedSignals.items()
+        for leadId, signal in paddedRawSignals.items()
+    }
+    
+    maxLength = max([len(s) for _, s in paddedScaledSignals.items()])
+    fullScaledSignals = {
+        leadId: common.padRight(signal, maxLength - len(signal))
+        for leadId, signal in paddedScaledSignals.items()
     }
 
-    return fullSignals, previews
+    # Return both raw (pixels) and scaled (mV) signals
+    return fullScaledSignals, previews, fullRawSignals
 
 
-def exportSignals(leadSignals, filePath, separator='\t'):
+def exportSignals(leadSignals, filePath, separator='\t', exportUnit='pixels', inputParameters=None):
     """Exports a dict of lead signals to file
 
     Args:
-        leadSignals (Dict[str -> np.ndarray]): Dict mapping lead id's to np array of signal data (output from convertECGLeads)
+        leadSignals: Dict mapping lead id's to np array of signal data
+        filePath: Path to export file
+        separator: Field separator character
+        exportUnit: 'pixels' or 'mV' - for labeling purposes
+        inputParameters: InputParameters object (not used directly since signals are pre-converted)
     """
     leads = common.zipDict(leadSignals)
     leads.sort(key=lambda pair: pair[0].value)
@@ -116,3 +136,6 @@ def exportSignals(leadSignals, filePath, separator='\t'):
 
     with open(filePath, 'w') as outputFile:
         outputFile.writelines(outputLines)
+
+
+# Removed convertSignalsToMV - signals are now pre-converted in convertECGLeads

@@ -11,6 +11,8 @@ from PyQt5 import QtCore, QtWidgets
 from model.Lead import LeadId
 from views.ImageView import *
 from views.ROIView import *
+from views.GridROIView import *
+from views.BaselineView import *
 from views.EditPanelLeadView import *
 from views.EditPanelGlobalView import *
 from QtWrapper import *
@@ -84,6 +86,16 @@ class Editor(QtWidgets.QWidget):
         self.mainWindow.addLeadV5.triggered.connect(lambda: self.addLead(LeadId['V5']))
         self.mainWindow.addLeadV6.triggered.connect(lambda: self.addLead(LeadId['V6']))
 
+        # Grid box connections
+        self.mainWindow.addGridBox.triggered.connect(lambda: self.addGridBox(expectedMm=5.0))
+        self.mainWindow.deleteAllGridBoxes.triggered.connect(self.deleteAllGridBoxes)
+
+        # Baseline connections
+        self.mainWindow.addThreeBaselines.triggered.connect(self.addThreeBaselines)
+        self.mainWindow.addBaseline1.triggered.connect(lambda: self.addBaseline(baselineId=0))
+        self.mainWindow.addBaseline2.triggered.connect(lambda: self.addBaseline(baselineId=1))
+        self.mainWindow.addBaseline3.triggered.connect(lambda: self.addBaseline(baselineId=2))
+        self.mainWindow.removeAllBaselines.triggered.connect(self.removeAllBaselines)
 
         self.imageViewer.roiItemSelected.connect(self.setControlPanel)
 
@@ -100,6 +112,29 @@ class Editor(QtWidgets.QWidget):
             lead = leads[name]
             cropping = lead['cropping']
             self.addLead(leadIdEnum=LeadId[name], x=cropping['x'], y=cropping['y'], width=cropping['width'], height=cropping['height'], startTime=lead['start'])
+
+        # Load grid boxes if present in saved state
+        gridBoxes = data.get('gridBoxes', [])
+        for gridBoxData in gridBoxes:
+            cropping = gridBoxData['cropping']
+            expectedMmWidth = gridBoxData.get('expectedMmWidth', 5.0)
+            expectedMmHeight = gridBoxData.get('expectedMmHeight', 5.0)
+            self.addGridBox(
+                expectedMm=expectedMmWidth,
+                x=cropping['x'],
+                y=cropping['y'],
+                width=cropping['width'],
+                height=cropping['height']
+            )
+            # Update the last added grid box's height mm if different
+            gridBoxItem = self.imageViewer._scene.items()[-1]
+            if hasattr(gridBoxItem, 'expectedMmHeight'):
+                gridBoxItem.expectedMmHeight = expectedMmHeight
+
+        # Load baselines if present in saved state
+        baselineYs = data.get('baselineYs', {})
+        for baselineId, baselineY in baselineYs.items():
+            self.imageViewer.addBaseline(baselineY, baselineId=int(baselineId))
 
 
     ###########################
@@ -190,3 +225,44 @@ class Editor(QtWidgets.QWidget):
             button.setEnabled(True)
 
         self.setControlPanel()    # Set control panel back to global view
+
+    ######################
+    # Grid ROI functions #
+    ######################
+
+    def addGridBox(self, expectedMm=5.0, x=0, y=0, width=200, height=200):
+        """Add a grid calibration box for pixel-to-mm ratio calculation."""
+        if self.imageViewer.hasImage():
+            # Create instance of Grid calibration box and add to image viewer
+            gridBox = GridBoxItem(self.imageViewer._scene, gridId=self.imageViewer.getGridBoxCount())
+            gridBox.expectedMmWidth = expectedMm
+            gridBox.expectedMmHeight = expectedMm
+            gridBox.setRect(x, y, width, height)
+            self.imageViewer._scene.addItem(gridBox)
+            gridBox.show()
+
+    def deleteGridBox(self, gridId):
+        """Remove a specific grid box from the scene."""
+        self.imageViewer.removeGridBox(gridId)
+
+    def deleteAllGridBoxes(self):
+        """Remove all grid boxes from the scene."""
+        self.imageViewer.removeAllGridBoxes()
+
+    def addBaseline(self, baselineId=0):
+        """Add a baseline (isoelectric line) marker for a specific row."""
+        if self.imageViewer.hasImage():
+            self.imageViewer.addBaseline(baselineId=baselineId)
+
+    def addThreeBaselines(self):
+        """Add all 3 baselines for 12-lead ECG."""
+        if self.imageViewer.hasImage():
+            self.imageViewer.addThreeBaselines()
+
+    def removeAllBaselines(self):
+        """Remove all baseline markers."""
+        self.imageViewer.removeBaseline()
+
+    def removeBaseline(self, baselineId=None):
+        """Remove a specific baseline or all baselines."""
+        self.imageViewer.removeBaseline(baselineId)

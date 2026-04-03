@@ -46,6 +46,8 @@ class MainWindow(QtWidgets.QMainWindow):
             menus=[
                 self.buildFileMenu(),
                 self.buildLeadMenu(),
+                self.buildGridMenu(),
+                self.buildBaselineMenu(),
                 self.buildHelpMenu()
             ]
         )
@@ -162,6 +164,73 @@ class MainWindow(QtWidgets.QMainWindow):
                     displayName="Add Lead V6",
                     shortcut=QtGui.QKeySequence('Ctrl+]'),
                     statusTip="Add Lead V6"
+                )
+            ]
+        )
+
+    def buildGridMenu(self):
+        return Qt.Menu(
+            owner=self,
+            name='gridMenu',
+            displayName='Grid',
+            items=[
+               Qt.MenuAction(
+                    owner=self,
+                    name="addGridBox",
+                    displayName="Add 5mm Grid Box",
+                    shortcut=QtGui.QKeySequence('Ctrl+G'),
+                    statusTip="Add a 5mm grid calibration box (place over 5mm x 5mm large square)"
+                ),
+                Qt.MenuAction(
+                    owner=self,
+                    name="deleteAllGridBoxes",
+                    displayName="Delete All Grid Boxes",
+                    shortcut=None,
+                    statusTip="Delete all grid calibration boxes"
+                )
+            ]
+        )
+
+    def buildBaselineMenu(self):
+        return Qt.Menu(
+            owner=self,
+            name='baselineMenu',
+            displayName='Baseline',
+            items=[
+               Qt.MenuAction(
+                    owner=self,
+                    name="addThreeBaselines",
+                    displayName="Add 3 Baselines (for 12-lead)",
+                    shortcut=QtGui.QKeySequence('Ctrl+B'),
+                    statusTip="Add 3 isoelectric baselines for 12-lead ECG (one per row)"
+                ),
+               Qt.MenuAction(
+                    owner=self,
+                    name="addBaseline1",
+                    displayName="Add Baseline Row 1",
+                    shortcut=QtGui.QKeySequence('Ctrl+Shift+1'),
+                    statusTip="Add baseline for row 1 (leads I, II, III)"
+                ),
+               Qt.MenuAction(
+                    owner=self,
+                    name="addBaseline2",
+                    displayName="Add Baseline Row 2",
+                    shortcut=QtGui.QKeySequence('Ctrl+Shift+2'),
+                    statusTip="Add baseline for row 2 (aVR, aVL, V1)"
+                ),
+               Qt.MenuAction(
+                    owner=self,
+                    name="addBaseline3",
+                    displayName="Add Baseline Row 3",
+                    shortcut=QtGui.QKeySequence('Ctrl+Shift+3'),
+                    statusTip="Add baseline for row 3 (V2, V3, V4)"
+                ),
+                Qt.MenuAction(
+                    owner=self,
+                    name="removeAllBaselines",
+                    displayName="Remove All Baselines",
+                    shortcut=None,
+                    statusTip="Remove all baseline markers"
                 )
             ]
         )

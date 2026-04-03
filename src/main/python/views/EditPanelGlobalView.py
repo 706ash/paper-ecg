@@ -35,7 +35,83 @@ class EditPanelGlobalView(QtWidgets.QWidget):
                     ])
                 ])
             ),
-            GroupBox(owner=self, name="gridScaleGroup", title="Grid Scale", layout=
+            GroupBox(owner=self, name="gridCalibrationGroup", title="Grid Calibration", layout=
+                VerticalBoxLayout(owner=self, name="gridCalibrationLayout", contents=[
+                    Label(
+                        owner=self,
+                        name="gridCalibrationLabel",
+                        text="Place grid boxes over known grid regions"
+                    ),
+                    HorizontalBoxLayout(owner=self, name="pixelPerMmLayout", contents=[
+                        Label(
+                            owner=self,
+                            name="pixelPerMmLabel",
+                            text="Pixels/mm: "
+                        ),
+                        Label(
+                            owner=self,
+                            name="pixelPerMmValue",
+                            text="Not calibrated"
+                        )
+                    ]),
+                    PushButton(
+                        owner=self,
+                        name="autoCalculateScaleButton",
+                        text="Auto-Calculate Scales from Grid"
+                    )
+                ])
+            ),
+            GroupBox(owner=self, name="baselineGroup", title="Baseline (Isoelectric Line)", layout=
+                VerticalBoxLayout(owner=self, name="baselineLayout", contents=[
+                    Label(
+                        owner=self,
+                        name="baselineLabel",
+                        text="Mark baseline (0 mV) for each row of 12-lead ECG"
+                    ),
+                    HorizontalBoxLayout(owner=self, name="baseline1Layout", contents=[
+                        Label(
+                            owner=self,
+                            name="baseline1Label",
+                            text="Row 1 (I,II,III): "
+                        ),
+                        Label(
+                            owner=self,
+                            name="baseline1YValue",
+                            text="Not set"
+                        )
+                    ]),
+                    HorizontalBoxLayout(owner=self, name="baseline2Layout", contents=[
+                        Label(
+                            owner=self,
+                            name="baseline2Label",
+                            text="Row 2 (aVR,aVL,V1): "
+                        ),
+                        Label(
+                            owner=self,
+                            name="baseline2YValue",
+                            text="Not set"
+                        )
+                    ]),
+                    HorizontalBoxLayout(owner=self, name="baseline3Layout", contents=[
+                        Label(
+                            owner=self,
+                            name="baseline3Label",
+                            text="Row 3 (V2,V3,V4): "
+                        ),
+                        Label(
+                            owner=self,
+                            name="baseline3YValue",
+                            text="Not set"
+                        )
+                    ]),
+                    Label(
+                        owner=self,
+                        name="baselineHelpLabel",
+                        text="Use Baseline > Add 3 Baselines, then drag each to TP/PR segment"
+                    )
+                ])
+            ),
+            GroupBox(owner=self, name="gridScaleGroup", title="Manual Grid Scale", layout=
                 FormLayout(owner=self, name="controlsLayout", contents=[
                     (
                         Label(
@@ -115,6 +191,7 @@ class EditPanelGlobalView(QtWidgets.QWidget):
 
         self.clearTimeSpinBox()
         self.clearVoltSpinBox()
+        self.pixelPerMmValue.setAlignment(QtCore.Qt.AlignRight)
 
 
     def connectUI(self):
@@ -127,6 +204,11 @@ class EditPanelGlobalView(QtWidgets.QWidget):
 
         self.processDataButton.clicked.connect(lambda: self.editorWidget.processEcgData.emit())
         self.saveAnnotationsButton.clicked.connect(lambda: self.editorWidget.saveAnnotationsButtonClicked.emit())
+        self.autoCalculateScaleButton.clicked.connect(self.autoCalculateScalesFromGrid)
+
+        # Connect to ROI updates to refresh pixel/mm and baseline display
+        self.editorWidget.imageViewer.updateRoiItem.connect(self.updateGridCalibrationDisplay)
+        self.editorWidget.imageViewer.updateRoiItem.connect(self.updateBaselineDisplay)
 
     def clearVoltSpinBox(self):
         self.voltScaleSpinBox.setValue(DEFAULT_VOLTAGE_SCALE)
@@ -173,4 +255,61 @@ class EditPanelGlobalView(QtWidgets.QWidget):
             self.lastSavedTimeStamp.setText("Last saved: " + timeStamp)
         else:
             self.lastSavedTimeStamp.setText(None)
+
+    def updateGridCalibrationDisplay(self, _=None):
+        """Update the pixel/mm display based on grid boxes."""
+        pxPerMmX, pxPerMmY = self.editorWidget.imageViewer.getAveragePixelPerMmFromGridBoxes()
+        
+        if pxPerMmX is not None and pxPerMmY is not None:
+            avgPxPerMm = (pxPerMmX + pxPerMmY) / 2.0
+            self.pixelPerMmValue.setText(f"{avgPxPerMm:.2f} (X: {pxPerMmX:.2f}, Y: {pxPerMmY:.2f})")
+            self.pixelPerMmValue.setStyleSheet("color: green; font-weight: bold;")
+        else:
+            self.pixelPerMmValue.setText("Not calibrated")
+            self.pixelPerMmValue.setStyleSheet("")
+
+    def autoCalculateScalesFromGrid(self):
+        """Auto-calculate time and voltage scales from grid boxes."""
+        pxPerMmX, pxPerMmY = self.editorWidget.imageViewer.getAveragePixelPerMmFromGridBoxes()
+        
+        if pxPerMmX is None or pxPerMmY is None:
+            errorModal = QtWidgets.QMessageBox()
+            errorModal.setWindowTitle("No Grid Calibration")
+            errorModal.setText("No grid boxes found!")
+            errorModal.setInformativeText("Please add at least one grid box by going to Grid > Add 5mm Grid Box and placing it over a known grid region (e.g., 5mm x 5mm square).")
+            errorModal.setStandardButtons(QtWidgets.QMessageBox.Ok)
+            errorModal.exec_()
+            return
+        
+        # Standard ECG paper: 25 mm/s time scale, 10 mm/mV voltage scale
+        # Grid boxes give us pixels/mm, which we can use to verify/adjust scales
+        avgPxPerMm = (pxPerMmX + pxPerMmY) / 2.0
+        
+        infoModal = QtWidgets.QMessageBox()
+        infoModal.setWindowTitle("Grid Calibration Complete")
+        infoModal.setText(f"Calibrated pixel-to-mm ratio: {avgPxPerMm:.2f} pixels/mm")
+        infoModal.setInformativeText(
+            f"X-axis: {pxPerMmX:.2f} pixels/mm\n"
+            f"Y-axis: {pxPerMmY:.2f} pixels/mm\n\n"
+            "The system will use this calibration to convert pixel measurements to mm.\n"
+            "Ensure your time scale (mm/s) and voltage scale (mm/mV) are correct for your ECG paper."
+        )
+        infoModal.setStandardButtons(QtWidgets.QMessageBox.Ok)
+        infoModal.exec_()
+
+    def updateBaselineDisplay(self, _=None):
+        """Update the baseline Y displays for all 3 baselines."""
+        baselines = self.editorWidget.imageViewer.getAllBaselineYs()
+        
+        # Update each baseline display
+        for i in range(3):
+            label = self.findChild(QtWidgets.QLabel, f"baseline{i+1}YValue")
+            if label:
+                baselineY = baselines.get(i, None)
+                if baselineY is not None:
+                    label.setText(f"{baselineY:.1f} pixels")
+                    label.setStyleSheet("color: green; font-weight: bold;")
+                else:
+                    label.setText("Not set")
+                    label.setStyleSheet("")
 

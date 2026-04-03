@@ -22,7 +22,7 @@ from views.ROIView import *
 from views.ExportFileDialog import *
 from QtWrapper import *
 import Annotation
-from model.Lead import Lead, LeadId
+from model.Lead import Lead, LeadId, GridBox
 import datetime
 from model.InputParameters import InputParameters
 
@@ -119,7 +119,7 @@ class MainController:
         if self.window.editor.image is None:
             raise Exception("IMAGE NOT AVAILABLE WHEN `processEcgData` CALLED")
 
-        extractedSignals, previewImages = convertECGLeads(self.openImage, inputParameters)
+        extractedSignals, previewImages, rawPixelSignals = convertECGLeads(self.openImage, inputParameters)
 
         if extractedSignals is None:
             errorDialog = MessageDialog(
@@ -130,13 +130,21 @@ class MainController:
         else:
             exportFileDialog = ExportFileDialog(previewImages)
             if exportFileDialog.exec_():
-                self.exportECGData(exportFileDialog.fileExportPath, exportFileDialog.delimiterDropdown.currentText(), extractedSignals)
+                # Select which signals to export based on user's choice
+                signalsToExport = rawPixelSignals if exportFileDialog.exportUnit == "pixels" else extractedSignals
+                self.exportECGData(
+                    exportFileDialog.fileExportPath,
+                    exportFileDialog.delimiterDropdown.currentText(),
+                    signalsToExport,
+                    exportFileDialog.exportUnit,
+                    inputParameters
+                )
 
-    def exportECGData(self, exportPath, delimiter, extractedSignals):
+    def exportECGData(self, exportPath, delimiter, extractedSignals, exportUnit, inputParameters):
         seperatorMap = {"Comma":',', "Tab":'\t', "Space":' '}
         assert delimiter in seperatorMap, f"Unrecognized delimiter {delimiter}"
 
-        exportSignals(extractedSignals, exportPath, separator=seperatorMap[delimiter])
+        exportSignals(extractedSignals, exportPath, separator=seperatorMap[delimiter], exportUnit=exportUnit, inputParameters=inputParameters)
 
     def saveAnnotations(self):
 
@@ -158,6 +166,18 @@ class MainController:
                 lead.startTime
             )
 
+        def extractGridBoxAnnotation(gridBox: GridBox) -> Annotation.GridBoxAnnotation:
+            return Annotation.GridBoxAnnotation(
+                Annotation.CropLocation(
+                    gridBox.x,
+                    gridBox.y,
+                    gridBox.width,
+                    gridBox.height,
+                ),
+                gridBox.expectedMmWidth,
+                gridBox.expectedMmHeight
+            )
+
         metadataDirectory = self.openFile.parent / '.paperecg'
         if not metadataDirectory.exists():
             metadataDirectory.mkdir()
@@ -170,6 +190,10 @@ class MainController:
             name: extractLeadAnnotation(lead) for name, lead in inputParameters.leads.items()
         }
 
+        gridBoxes = [
+            extractGridBoxAnnotation(gridBox) for gridBox in inputParameters.gridBoxes
+        ]
+
         currentDateTime = (datetime.datetime.now()).strftime("%m/%d/%Y, %H:%M:%S")
 
         Annotation.Annotation(
@@ -178,7 +202,9 @@ class MainController:
             rotation=inputParameters.rotation,
             timeScale=inputParameters.timeScale,
             voltageScale=inputParameters.voltScale,
-            leads=leads
+            leads=leads,
+            gridBoxes=gridBoxes,
+            baselineYs=inputParameters.baselineYs
         ).save(filePath)
 
         print("Metadata successfully saved to:", str(filePath))
@@ -211,7 +237,9 @@ class MainController:
             rotation=self.window.editor.EditPanelGlobalView.getRotation(),
             timeScale=self.window.editor.EditPanelGlobalView.timeScaleSpinBox.value(),
             voltScale=self.window.editor.EditPanelGlobalView.voltScaleSpinBox.value(),
-            leads=self.window.editor.imageViewer.getAllLeadRoisAsDict()
+            leads=self.window.editor.imageViewer.getAllLeadRoisAsDict(),
+            gridBoxes=self.window.editor.imageViewer.getAllGridBoxesAsList(),
+            baselineYs=self.window.editor.imageViewer.getAllBaselineYs()  # Dict of {id: y}
         )
 
 

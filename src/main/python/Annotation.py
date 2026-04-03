@@ -49,6 +49,20 @@ class LeadAnnotation:
 
 
 @dataclasses.dataclass(frozen=True)
+class GridBoxAnnotation:
+    """Annotation for a grid calibration box.
+    
+    Attributes:
+        cropping: Location and dimensions of the grid box in pixels
+        expectedMmWidth: Expected physical width in mm (default 5.0 for one large square)
+        expectedMmHeight: Expected physical height in mm (default 5.0 for one large square)
+    """
+    cropping: CropLocation
+    expectedMmWidth: float = 5.0
+    expectedMmHeight: float = 5.0
+
+
+@dataclasses.dataclass(frozen=True)
 class Schema:
     name: str
     version: int
@@ -82,7 +96,13 @@ class Annotation:
                 CropLocation(0, 0, 20, 40),
                 0.0
             )
-        }
+        },
+        [
+            GridBoxAnnotation(
+                CropLocation(100, 100, 50, 50),
+                5.0, 5.0
+            )
+        ]
     )
     ```
     """
@@ -96,6 +116,8 @@ class Annotation:
     timeScale: Union[int, float]
     voltageScale: Union[int, float]
     leads: Dict[Lead.LeadId, LeadAnnotation]
+    gridBoxes: List[GridBoxAnnotation] = dataclasses.field(default_factory=list)
+    baselineYs: Dict[int, float] = dataclasses.field(default_factory=dict)  # {baselineId: y_position}
 
     def toDict(self):
         dictionary = dataclasses.asdict(self)  # <3 dataclasses
@@ -106,6 +128,8 @@ class Annotation:
         }
         # Remove None entries from the image since it has optional fields
         dictionary["image"] = noneValuesRemoved(dataclasses.asdict(self.image))
+        # Keep gridBoxes as list of dicts
+        dictionary["gridBoxes"] = [dataclasses.asdict(annotation) for annotation in self.gridBoxes]
 
         return dictionary
 

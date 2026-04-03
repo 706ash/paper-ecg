@@ -1,16 +1,20 @@
-import numpy as np
-from PyQt5 import QtGui, QtCore, QtWidgets
-from model.Lead import LeadId
+"""
+GridROIView.py
+Created 2026
 
-import ImageUtilities
+Grid calibration box for defining pixel-to-mm ratio
+"""
+from PyQt5 import QtGui, QtCore, QtWidgets
 
 # According the docs, custom items should have type >= UserType (65536)
-# Setting the type allows you to distinguish between items in the graphics scene
-# https://doc.qt.io/archives/qt-4.8/qgraphicsitem.html#UserType-var
-ROI_ITEM_TYPE = QtWidgets.QGraphicsRectItem.UserType
+GRID_BOX_ITEM_TYPE = QtWidgets.QGraphicsRectItem.UserType + 1
 
-# From: https://github.com/drmatthews/slidecrop_pyqt/blob/master/slidecrop/gui/roi.py#L116
-class ROIItem(QtWidgets.QGraphicsRectItem):
+class GridBoxItem(QtWidgets.QGraphicsRectItem):
+    """
+    A resizable box for calibrating the ECG grid scale.
+    Users place this box over a known grid region (e.g., 5mm x 5mm large square)
+    to calculate the pixel-to-mm ratio for accurate voltage and time scaling.
+    """
 
     handleTopLeft = 1
     handleTopMiddle = 2
@@ -31,7 +35,6 @@ class ROIItem(QtWidgets.QGraphicsRectItem):
             return max(self.parentViews[0].transform().m11(), 0.1)
         return 1.0
 
-
     handleCursors = {
         handleTopLeft: QtCore.Qt.SizeFDiagCursor,
         handleTopMiddle: QtCore.Qt.SizeVerCursor,
@@ -43,20 +46,21 @@ class ROIItem(QtWidgets.QGraphicsRectItem):
         handleBottomRight: QtCore.Qt.SizeFDiagCursor,
     }
 
-    def __init__(self, parent, leadId, *args):
+    def __init__(self, parent, gridId=0, *args):
         """
         Initialize the shape.
         """
         super().__init__(*args)
 
-        self.leadId = leadId
-        self.startTime = 0.0
+        self.gridId = gridId
+        self.expectedMmWidth = 5.0   # Default: 5mm (one large square)
+        self.expectedMmHeight = 5.0  # Default: 5mm (one large square)
 
-        # Minimum width and height of box (in pixels)
-        self.minHeight = 50
-        self.minWidth = 50
+        # Minimum width and height of box (in scene pixels)
+        self.minHeight = 10
+        self.minWidth = 10
 
-        # QGraphicsScene that contains this ROIItem instance
+        # QGraphicsScene that contains this GridBoxItem instance
         self.parentScene = parent
 
         # QGraphicsView that displays the parentScene
@@ -73,9 +77,8 @@ class ROIItem(QtWidgets.QGraphicsRectItem):
         self.setFlag(QtWidgets.QGraphicsItem.ItemIsFocusable, True)
         self.updateHandlesPos()
 
-        # Set item type to identify ROI items in scene - according to custom items should
-        # have type >= UserType (65536)
-        self.type = ROI_ITEM_TYPE
+        # Set item type to identify grid box items in scene
+        self.type = GRID_BOX_ITEM_TYPE
 
     @property
     def x(self):
@@ -195,11 +198,8 @@ class ROIItem(QtWidgets.QGraphicsRectItem):
         Perform shape interactive resize.
         """
         offset = self.handleSize + self.handleSpace
-        sceneRect = self.parentScene.sceneRect()
         boundingRect = self.handleBounds()
-        mappedRect = self.mapToScene(self.handleBounds()).boundingRect()
         rect = self.rect()
-        diff = QtCore.QPointF(0, 0)
 
         self.prepareGeometryChange()
 
@@ -209,48 +209,39 @@ class ROIItem(QtWidgets.QGraphicsRectItem):
             toX = fromX + mousePos.x() - self.mousePressPos.x()
             toY = fromY + mousePos.y() - self.mousePressPos.y()
 
-            if boundingRect.bottom() - toY > self.minHeight and mappedRect.y() - (boundingRect.y()-toY) >= sceneRect.top():
-                diff.setY(toY - fromY)
+            if boundingRect.bottom() - toY > self.minHeight:
                 boundingRect.setTop(toY)
                 rect.setTop(boundingRect.top() + offset)
-            if boundingRect.right() - toX > self.minWidth and mappedRect.x() - (boundingRect.x()-toX) >= sceneRect.left():
-                    diff.setX(toX - fromX)
-                    boundingRect.setLeft(toX)
-                    rect.setLeft(boundingRect.left() + offset)
+            if boundingRect.right() - toX > self.minWidth:
+                boundingRect.setLeft(toX)
+                rect.setLeft(boundingRect.left() + offset)
             self.setRect(rect)
 
         elif self.handleSelected == self.handleTopMiddle:
-
             fromY = self.mousePressRect.top()
             toY = fromY + mousePos.y() - self.mousePressPos.y()
-            if boundingRect.bottom() - toY > self.minHeight and mappedRect.y() - (boundingRect.y()-toY) >= sceneRect.top():
-                diff.setY(toY - fromY)
+            if boundingRect.bottom() - toY > self.minHeight:
                 boundingRect.setTop(toY)
                 rect.setTop(boundingRect.top() + offset)
             self.setRect(rect)
 
         elif self.handleSelected == self.handleTopRight:
-
             fromX = self.mousePressRect.right()
             fromY = self.mousePressRect.top()
             toX = fromX + mousePos.x() - self.mousePressPos.x()
             toY = fromY + mousePos.y() - self.mousePressPos.y()
-            if boundingRect.bottom() - toY > self.minHeight and mappedRect.y() - (boundingRect.y()-toY) >= sceneRect.top():
-                diff.setY(toY - fromY)
+            if boundingRect.bottom() - toY > self.minHeight:
                 boundingRect.setTop(toY)
                 rect.setTop(boundingRect.top() + offset)
-            if toX - boundingRect.left() > self.minWidth and mappedRect.topRight().x() - (boundingRect.topRight().x()-toX) <= sceneRect.right():
-                diff.setX(toX - fromX)
+            if toX - boundingRect.left() > self.minWidth:
                 boundingRect.setRight(toX)
                 rect.setRight(boundingRect.right() - offset)
             self.setRect(rect)
 
         elif self.handleSelected == self.handleMiddleLeft:
-
             fromX = self.mousePressRect.left()
             toX = fromX + mousePos.x() - self.mousePressPos.x()
-            if boundingRect.right() - toX > self.minWidth and mappedRect.x() - (boundingRect.x()-toX) >= sceneRect.left():
-                diff.setX(toX - fromX)
+            if boundingRect.right() - toX > self.minWidth:
                 boundingRect.setLeft(toX)
                 rect.setLeft(boundingRect.left() + offset)
             self.setRect(rect)
@@ -258,56 +249,46 @@ class ROIItem(QtWidgets.QGraphicsRectItem):
         elif self.handleSelected == self.handleMiddleRight:
             fromX = self.mousePressRect.right()
             toX = fromX + mousePos.x() - self.mousePressPos.x()
-            if toX - boundingRect.left() > self.minWidth and mappedRect.right() - (boundingRect.right()-toX) <= sceneRect.right():
-                diff.setX(toX - fromX)
+            if toX - boundingRect.left() > self.minWidth:
                 boundingRect.setRight(toX)
                 rect.setRight(boundingRect.right() - offset)
             self.setRect(rect)
 
         elif self.handleSelected == self.handleBottomLeft:
-
             fromX = self.mousePressRect.left()
             fromY = self.mousePressRect.bottom()
             toX = fromX + mousePos.x() - self.mousePressPos.x()
             toY = fromY + mousePos.y() - self.mousePressPos.y()
-            if toY - boundingRect.top() > self.minHeight and mappedRect.bottomLeft().y() - (boundingRect.bottomLeft().y()-toY) <= sceneRect.bottom():
-                diff.setY(toY - fromY)
+            if toY - boundingRect.top() > self.minHeight:
                 boundingRect.setBottom(toY)
                 rect.setBottom(boundingRect.bottom() - offset)
-            if boundingRect.right() - toX > self.minWidth and mappedRect.x() - (boundingRect.x()-toX) >= sceneRect.left():
-                diff.setX(toX - fromX)
+            if boundingRect.right() - toX > self.minWidth:
                 boundingRect.setLeft(toX)
                 rect.setLeft(boundingRect.left() + offset)
             self.setRect(rect)
 
         elif self.handleSelected == self.handleBottomMiddle:
-
             fromY = self.mousePressRect.bottom()
             toY = fromY + mousePos.y() - self.mousePressPos.y()
-            if toY - boundingRect.top() > self.minHeight and mappedRect.bottom() - (boundingRect.bottom()-toY) <= sceneRect.bottom():
-                diff.setY(toY - fromY)
+            if toY - boundingRect.top() > self.minHeight:
                 boundingRect.setBottom(toY)
                 rect.setBottom(boundingRect.bottom() - offset)
                 self.setRect(rect)
 
         elif self.handleSelected == self.handleBottomRight:
-
             fromX = self.mousePressRect.right()
             fromY = self.mousePressRect.bottom()
             toX = fromX + mousePos.x() - self.mousePressPos.x()
             toY = fromY + mousePos.y() - self.mousePressPos.y()
-            if toY - boundingRect.top() > self.minHeight and mappedRect.bottomRight().y() - (boundingRect.bottomRight().y()-toY) <= sceneRect.bottom():
-                diff.setY(toY - fromY)
+            if toY - boundingRect.top() > self.minHeight:
                 boundingRect.setBottom(toY)
                 rect.setBottom(boundingRect.bottom() - offset)
-            if toX - boundingRect.left() > self.minWidth and mappedRect.bottomRight().x() - (boundingRect.bottomRight().x()-toX) <= sceneRect.right():
-                diff.setX(toX - fromX)
+            if toX - boundingRect.left() > self.minWidth:
                 boundingRect.setRight(toX)
                 rect.setRight(boundingRect.right() - offset)
             self.setRect(rect)
 
         self.updateHandlesPos()
-
 
     def itemChange(self, change, value):
         if change == QtWidgets.QGraphicsRectItem.ItemPositionChange:
@@ -315,18 +296,19 @@ class ROIItem(QtWidgets.QGraphicsRectItem):
                 return self.restrictMovement(value)
 
         if change == QtWidgets.QGraphicsRectItem.ItemSelectedChange:
-            self.parentViews[0].roiItemSelected.emit(self.leadId, value)
+            # Convert gridId to string like lead boxes do with leadId.name
+            self.parentViews[0].roiItemSelected.emit(f"grid_{self.gridId}", value)
             if value == True:
                 self.setZValue(1)
             else:
                 self.setZValue(0)
+            # Force repaint to show/hide handles
+            self.update()
 
         return QtWidgets.QGraphicsRectItem.itemChange(self, change, value)
 
-
-    # https://stackoverflow.com/questions/55771100/how-do-i-reimplement-the-itemchange-and-mousemoveevent-of-a-qgraphicspixmapitem
     def restrictMovement(self, value):
-
+        """Keep the grid box within the scene bounds"""
         boxRect = self.mapToScene(self.boundingRect()).boundingRect()
         handleOffset = self.handleSpace
         sceneRect = self.parentScene.sceneRect()
@@ -356,6 +338,7 @@ class ROIItem(QtWidgets.QGraphicsRectItem):
         """
         path = QtGui.QPainterPath()
         path.addRect(self.rect())
+        # Only include handles in shape when selected (for hit testing)
         if self.isSelected():
             for shape in self.handles.values():
                 path.addEllipse(shape)
@@ -366,31 +349,53 @@ class ROIItem(QtWidgets.QGraphicsRectItem):
         Paint the node in the graphic view.
         """
         self.updateHandlesPos()
-
-        painter.setFont(QtGui.QFont('Default', 50))
-        fontMetrics = QtGui.QFontMetrics(painter.font())
-
         if self.isSelected():
-            # Set color (red) and draw box (when selected)
-            painter.setPen(QtGui.QPen(QtGui.QColor(255, 0, 0), 2.0, QtCore.Qt.SolidLine))
-            painter.setBrush(QtGui.QBrush(QtGui.QColor(255, 0, 0, 64)))
+            # Draw box: semi-transparent blue fill
+            painter.setPen(QtGui.QPen(QtGui.QColor(0, 100, 255), 2.0, QtCore.Qt.SolidLine))
+            painter.setBrush(QtGui.QBrush(QtGui.QColor(0, 100, 255, 40)))
             painter.drawRect(self.rect())
 
-            # Set color and paint resize handles
-            painter.setRenderHint(QtGui.QPainter.Antialiasing)
-            painter.setBrush(QtGui.QBrush(QtGui.QColor(255, 0, 0, 255)))
-            painter.setPen(QtGui.QPen(QtGui.QColor(255, 0, 0, 255), 2.0, QtCore.Qt.SolidLine, QtCore.Qt.RoundCap, QtCore.Qt.RoundJoin))
+            # Draw label clipped inside box
+            painter.save()
+            painter.setClipping(True)
+            painter.setClipRect(self.rect())
+            painter.setPen(QtGui.QPen(QtGui.QColor(0, 100, 255), 1.5))
+            painter.setFont(QtGui.QFont('Default', 10))
+            label = f"{self.expectedMmWidth}mm Grid"
+            painter.drawText(self.rect(), QtCore.Qt.AlignCenter, label)
+            painter.restore()
 
+            # Draw resize handles (no clip)
+            painter.setRenderHint(QtGui.QPainter.Antialiasing)
+            painter.setBrush(QtGui.QBrush(QtGui.QColor(0, 100, 255, 200)))
+            painter.setPen(QtGui.QPen(QtGui.QColor(0, 100, 255), 1.0, QtCore.Qt.SolidLine))
             for handle, rect in self.handles.items():
                 painter.drawRect(rect)
         else:
-            # Set color (grey) and draw box (unselected)
-            painter.setPen(QtGui.QPen(QtGui.QColor(128, 128, 128), 2.0, QtCore.Qt.SolidLine))
-            painter.setBrush(QtGui.QBrush(QtGui.QColor(128, 128, 128, 40)))
+            # Draw box: light semi-transparent grey fill
+            painter.setPen(QtGui.QPen(QtGui.QColor(80, 80, 80), 1.5, QtCore.Qt.SolidLine))
+            painter.setBrush(QtGui.QBrush(QtGui.QColor(100, 100, 100, 30)))
             painter.drawRect(self.rect())
-            
+
+            # Draw label clipped inside box
             painter.save()
+            painter.setClipping(True)
             painter.setClipRect(self.rect())
-            painter.drawText(self.rect(), QtCore.Qt.AlignCenter, self.leadId)
+            painter.setPen(QtGui.QPen(QtGui.QColor(60, 60, 60), 1.0))
+            painter.setFont(QtGui.QFont('Default', 10))
+            label = f"Grid {self.gridId+1}"
+            painter.drawText(self.rect(), QtCore.Qt.AlignCenter, label)
             painter.restore()
 
+    def getPixelPerMm(self):
+        """
+        Calculate the pixel-to-mm ratio based on the box dimensions and expected mm size.
+        
+        Returns:
+            tuple: (pixelsPerMmX, pixelsPerMmY)
+        """
+        if self.expectedMmWidth > 0 and self.expectedMmHeight > 0:
+            pixelsPerMmX = self.width / self.expectedMmWidth
+            pixelsPerMmY = self.height / self.expectedMmHeight
+            return pixelsPerMmX, pixelsPerMmY
+        return None, None
