@@ -145,6 +145,13 @@ def exportSignals(leadSignals, filePath, separator='\t', exportUnit='pixels', in
     if not issubclass(type(filePath), Path):
         filePath = Path(filePath)
 
+    if filePath.suffix == '.npz':
+        # Save as named numpy arrays for easy access
+        export_dict = {lead_id.name: signal for lead_id, signal in leads}
+        export_dict['sampling_rate'] = 500.0  # Common metadata
+        np.savez(filePath, **export_dict)
+        return
+
     if filePath.exists():
         print("Warning: Output file will be overwritten!")
 

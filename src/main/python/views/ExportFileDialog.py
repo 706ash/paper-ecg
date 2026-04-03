@@ -187,7 +187,8 @@ import matplotlib.pyplot as plt
 
 fileTypesDictionary = {
     "Text File (*.txt)": "txt",
-    "CSV (*.csv)": "csv"
+    "CSV (*.csv)": "csv",
+    "NumPy NPZ (*.npz)": "npz"
 }
 
 
@@ -340,10 +341,11 @@ class ExportFileDialog(QtWidgets.QDialog):
             self.exportUnit = "pixels"
 
     def openSaveFileDialog(self):
+        filter_string = ";;".join(fileTypesDictionary.keys())
         path, selectedFilter = QtWidgets.QFileDialog.getSaveFileName(
             parent=self,
             caption="Export to File",
-            filter="Text File (*.txt);;CSV (*.csv)"
+            filter=filter_string
         )
         if path is not "":
             self.errorMessageLabel.setText("")
